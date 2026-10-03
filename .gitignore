@@ -1,0 +1,27 @@
+# Kotlin / Gradle
+.gradle/
+.kotlin/
+build/
+out/
+*.class
+
+# Rust
+target/
+
+# Node (client)
+node_modules/
+dist/
+
+# Environment (keep the example)
+.env
+.env.*
+!.env.example
+
+# IDE
+.idea/
+.vscode/
+*.iml
+
+# OS
+.DS_Store
+Thumbs.db
