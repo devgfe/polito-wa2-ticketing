@@ -1,0 +1,310 @@
+openapi: 3.1.0
+info:
+  title: Payments API
+  version: 0.1.0
+servers:
+  - url: http://payments:8080
+    description: Internal network, not exposed.
+security:
+  - bearerAuth: []
+
+paths:
+  /payments:
+    post:
+      operationId: createPayment
+      summary: Start the payment of an order
+      requestBody: { $ref: "#/components/requestBodies/PaymentInput" }
+      responses:
+        "201": { $ref: "#/components/responses/PaymentCreated" }
+        "200": { $ref: "#/components/responses/Payment" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "422": { $ref: "#/components/responses/Unprocessable" }
+        "503": { $ref: "#/components/responses/Unavailable" }
+
+  /psp-operations:
+    get:
+      operationId: listPspOperations
+      summary: List the operations of an order
+      parameters:
+        - $ref: "#/components/parameters/OrderIdQuery"
+      responses:
+        "200": { $ref: "#/components/responses/PspOperationList" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "422": { $ref: "#/components/responses/Unprocessable" }
+
+  /psp-operations/{pspOperationId}:
+    parameters:
+      - $ref: "#/components/parameters/PspOperationId"
+    get:
+      operationId: getPspOperation
+      summary: Get an operation
+      responses:
+        "200": { $ref: "#/components/responses/PspOperation" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+
+  /paypal/webhooks:
+    servers:
+      - url: http://localhost:8080/api/v1
+    post:
+      operationId: receivePaypalWebhook
+      summary: Receive a PayPal event
+      security: []
+      parameters:
+        - $ref: "#/components/parameters/TransmissionId"
+        - $ref: "#/components/parameters/TransmissionTime"
+        - $ref: "#/components/parameters/TransmissionSig"
+        - $ref: "#/components/parameters/CertUrl"
+        - $ref: "#/components/parameters/AuthAlgo"
+      requestBody: { $ref: "#/components/requestBodies/PaypalEvent" }
+      responses:
+        "204": { $ref: "#/components/responses/NoContent" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: Keycloak service JWT.
+
+  parameters:
+    PspOperationId:
+      name: pspOperationId
+      in: path
+      required: true
+      description: PSP operation.
+      schema: { $ref: "#/components/schemas/PspOperationId" }
+    OrderIdQuery:
+      name: orderId
+      in: query
+      required: true
+      description: Order.
+      schema: { $ref: "#/components/schemas/OrderId" }
+    TransmissionId:
+      name: PAYPAL-TRANSMISSION-ID
+      in: header
+      required: true
+      description: Delivery id.
+      schema: { $ref: "#/components/schemas/PaypalHeader" }
+    TransmissionTime:
+      name: PAYPAL-TRANSMISSION-TIME
+      in: header
+      required: true
+      description: Delivery time.
+      schema: { $ref: "#/components/schemas/PaypalHeader" }
+    TransmissionSig:
+      name: PAYPAL-TRANSMISSION-SIG
+      in: header
+      required: true
+      description: Signature.
+      schema: { $ref: "#/components/schemas/PaypalHeader" }
+    CertUrl:
+      name: PAYPAL-CERT-URL
+      in: header
+      required: true
+      description: Signing certificate.
+      schema: { $ref: "#/components/schemas/PaypalHeader" }
+    AuthAlgo:
+      name: PAYPAL-AUTH-ALGO
+      in: header
+      required: true
+      description: Signature algorithm.
+      schema: { $ref: "#/components/schemas/PaypalHeader" }
+
+  headers:
+    Location:
+      description: URI of the created resource.
+      required: true
+      schema: { type: string, format: uri-reference }
+    RetryAfter:
+      description: Seconds before retrying.
+      required: true
+      schema: { type: integer, minimum: 1 }
+
+  requestBodies:
+    PaymentInput:
+      required: true
+      content:
+        application/json:
+          schema: { $ref: "#/components/schemas/PaymentInput" }
+    PaypalEvent:
+      required: true
+      content:
+        application/json:
+          schema: { $ref: "#/components/schemas/PaypalEvent" }
+
+  responses:
+    Payment:
+      description: Existing payment of the order.
+      content:
+        application/json:
+          schema: { $ref: "#/components/schemas/Payment" }
+    PaymentCreated:
+      description: Payment created.
+      headers:
+        Location: { $ref: "#/components/headers/Location" }
+      content:
+        application/json:
+          schema: { $ref: "#/components/schemas/Payment" }
+    PspOperation:
+      description: PSP operation.
+      content:
+        application/json:
+          schema: { $ref: "#/components/schemas/PspOperation" }
+    PspOperationList:
+      description: PSP operations of the order.
+      content:
+        application/json:
+          schema: { $ref: "#/components/schemas/PspOperationList" }
+    NoContent:
+      description: Processed, now or before.
+    BadRequest:
+      description: Malformed request.
+      content:
+        application/problem+json:
+          schema: { $ref: "#/components/schemas/Problem" }
+    Unauthorized:
+      description: Missing or invalid token or signature.
+      content:
+        application/problem+json:
+          schema: { $ref: "#/components/schemas/Problem" }
+    Forbidden:
+      description: Not allowed.
+      content:
+        application/problem+json:
+          schema: { $ref: "#/components/schemas/Problem" }
+    NotFound:
+      description: Not found.
+      content:
+        application/problem+json:
+          schema: { $ref: "#/components/schemas/Problem" }
+    Unprocessable:
+      description: Invalid field.
+      content:
+        application/problem+json:
+          schema: { $ref: "#/components/schemas/Problem" }
+    Unavailable:
+      description: PayPal unavailable.
+      headers:
+        Retry-After: { $ref: "#/components/headers/RetryAfter" }
+      content:
+        application/problem+json:
+          schema: { $ref: "#/components/schemas/Problem" }
+
+  schemas:
+    # Base types
+    OrderId: { description: Order identifier., type: string, examples: ["70412"] }
+    PspOperationId: { description: PSP operation identifier., type: string, examples: ["5521"] }
+    Instant: { description: Instant with offset., type: string, format: date-time, examples: ["2026-11-20T09:02:01Z"] }
+    Url: { description: Absolute URL., type: string, format: uri, examples: ["https://www.sandbox.paypal.com/checkoutnow?token=5O190127TN364715T"] }
+    Amount: { description: Decimal amount., type: string, pattern: '^\d+\.\d{2}$', examples: ["90.00"] }
+    Currency: { description: ISO 4217 code., type: string, pattern: '^[A-Z]{3}$', examples: [EUR] }
+    PspOperationKind: { description: Kind of operation., type: string, enum: [PAYMENT, REFUND], examples: [PAYMENT] }
+    PaymentStatus: { description: Payment state., type: string, enum: [INITIATED, CREATED, AUTHORIZED, PROCESSING, CAPTURED, FAILED], examples: [CREATED] }
+    RefundStatus: { description: Refund state., type: string, enum: [INITIATED, PENDING, COMPLETED, FAILED], examples: [COMPLETED] }
+    PspFailureReason: { description: Why the operation failed., type: string, examples: [PAYER_ACTION_EXPIRED] }
+    PaypalHeader: { description: PayPal header value., type: string, examples: [69cd13f0-d67a-11e5-baa3-778b53f4ae55] }
+
+    Money:
+      description: Amount of money.
+      type: object
+      additionalProperties: false
+      required: [amount, currency]
+      properties:
+        amount: { $ref: "#/components/schemas/Amount" }
+        currency: { $ref: "#/components/schemas/Currency" }
+
+    # Inputs
+    PaymentInput:
+      description: Payment of an order.
+      type: object
+      additionalProperties: false
+      required: [orderId, amount]
+      properties:
+        orderId: { $ref: "#/components/schemas/OrderId" }
+        amount: { $ref: "#/components/schemas/Money" }
+    PaypalEvent:
+      description: PayPal webhook event; fields used only.
+      type: object
+      required: [id, event_type, resource]
+      properties:
+        id: { description: PayPal event id., type: string, examples: [WH-2WR32451HC0233532-67976317FL4543714] }
+        event_type: { description: PayPal event type., type: string, examples: [CHECKOUT.ORDER.APPROVED] }
+        resource: { description: PayPal order, capture or refund., type: object, examples: [{ id: 5O190127TN364715T, status: APPROVED }] }
+
+    # Outputs
+    PspOperationBase:
+      description: Fields of every PSP operation; failureReason only when FAILED.
+      type: object
+      required: [id, orderId, kind, status, amount, createdAt]
+      properties:
+        id: { $ref: "#/components/schemas/PspOperationId" }
+        orderId: { $ref: "#/components/schemas/OrderId" }
+        kind: { $ref: "#/components/schemas/PspOperationKind" }
+        status: { description: State; values depend on kind., type: string }
+        amount: { $ref: "#/components/schemas/Money" }
+        createdAt: { $ref: "#/components/schemas/Instant" }
+        failureReason: { $ref: "#/components/schemas/PspFailureReason" }
+    Payment:
+      description: Payment; paymentUrl only when CREATED.
+      allOf:
+        - $ref: "#/components/schemas/PspOperationBase"
+        - type: object
+          description: Payment fields.
+          required: [expiresAt]
+          properties:
+            kind: { description: PAYMENT., const: PAYMENT }
+            status: { $ref: "#/components/schemas/PaymentStatus" }
+            expiresAt: { $ref: "#/components/schemas/Instant" }
+            paymentUrl: { $ref: "#/components/schemas/Url" }
+    Refund:
+      description: Refund.
+      allOf:
+        - $ref: "#/components/schemas/PspOperationBase"
+        - type: object
+          description: Refund fields.
+          properties:
+            kind: { description: REFUND., const: REFUND }
+            status: { $ref: "#/components/schemas/RefundStatus" }
+    PspOperation:
+      description: Payment or refund; kind selects the variant.
+      oneOf:
+        - $ref: "#/components/schemas/Payment"
+        - $ref: "#/components/schemas/Refund"
+      discriminator:
+        propertyName: kind
+        mapping:
+          PAYMENT: "#/components/schemas/Payment"
+          REFUND: "#/components/schemas/Refund"
+    PspOperationList:
+      description: PSP operations, oldest first.
+      type: object
+      required: [items]
+      properties:
+        items:
+          description: Operations.
+          type: array
+          items: { $ref: "#/components/schemas/PspOperation" }
+
+    # Errors
+    Problem:
+      description: RFC 9457 problem.
+      type: object
+      required: [type, title, status, code]
+      properties:
+        type: { description: Error class URI., type: string, format: uri, examples: ["https://ticketing.example/problems/amount-mismatch"] }
+        title: { description: Error class title., type: string, examples: [Amount mismatch] }
+        status: { description: HTTP status., type: integer, examples: [422] }
+        detail: { description: Explanation., type: string, examples: [Order 70412 already has a payment of 90.00 EUR.] }
+        instance: { description: Request path., type: string, examples: [/payments] }
+        code: { description: Stable error code., type: string, examples: [amount_mismatch] }
+        

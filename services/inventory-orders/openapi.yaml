@@ -1,0 +1,596 @@
+openapi: 3.1.0
+info:
+  title: Inventory & Orders API
+  version: 0.1.0
+servers:
+  - url: http://localhost:8080/api/v1
+    description: API gateway.
+security:
+  - bearerAuth: []
+
+paths:
+  /events/{eventId}/sales:
+    parameters:
+      - $ref: "#/components/parameters/EventId"
+    get:
+      operationId: getEventSales
+      summary: Get the sales of an event
+      responses:
+        "200": { $ref: "#/components/responses/EventSales" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+
+  /events/{eventId}/sessions/{sessionId}/seats:
+    parameters:
+      - $ref: "#/components/parameters/EventId"
+      - $ref: "#/components/parameters/SessionId"
+    get:
+      operationId: getSeatMap
+      summary: Get the seat map
+      security: []
+      parameters:
+        - $ref: "#/components/parameters/IfNoneMatch"
+      responses:
+        "200": { $ref: "#/components/responses/SeatMap" }
+        "304": { $ref: "#/components/responses/NotModified" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "404": { $ref: "#/components/responses/NotFound" }
+
+  /events/{eventId}/sessions/{sessionId}/seat-stream:
+    parameters:
+      - $ref: "#/components/parameters/EventId"
+      - $ref: "#/components/parameters/SessionId"
+    get:
+      operationId: streamSeatMap
+      summary: Stream the seat map
+      security: []
+      responses:
+        "200": { $ref: "#/components/responses/SeatStream" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "404": { $ref: "#/components/responses/NotFound" }
+
+  /holds/{sessionSeatId}:
+    parameters:
+      - $ref: "#/components/parameters/SessionSeatId"
+    put:
+      operationId: holdSeat
+      summary: Hold a seat
+      responses:
+        "200": { $ref: "#/components/responses/Hold" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "409": { $ref: "#/components/responses/Conflict" }
+        "429": { $ref: "#/components/responses/TooManyRequests" }
+        "503": { $ref: "#/components/responses/Unavailable" }
+    delete:
+      operationId: releaseSeat
+      summary: Release a held seat
+      responses:
+        "204": { $ref: "#/components/responses/NoContent" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+
+  /holds:
+    get:
+      operationId: listHolds
+      summary: List my active holds
+      responses:
+        "200": { $ref: "#/components/responses/HoldList" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+
+  /orders:
+    post:
+      operationId: createOrder
+      summary: Create an order
+      parameters:
+        - $ref: "#/components/parameters/IdempotencyKey"
+      requestBody: { $ref: "#/components/requestBodies/OrderInput" }
+      responses:
+        "201": { $ref: "#/components/responses/OrderCreated" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "409": { $ref: "#/components/responses/Conflict" }
+        "422": { $ref: "#/components/responses/Unprocessable" }
+        "429": { $ref: "#/components/responses/TooManyRequests" }
+        "503": { $ref: "#/components/responses/Unavailable" }
+    get:
+      operationId: listOrders
+      summary: List my orders
+      parameters:
+        - $ref: "#/components/parameters/Cursor"
+        - $ref: "#/components/parameters/Limit"
+      responses:
+        "200": { $ref: "#/components/responses/OrderPage" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "422": { $ref: "#/components/responses/Unprocessable" }
+
+  /orders/{orderId}:
+    parameters:
+      - $ref: "#/components/parameters/OrderId"
+    get:
+      operationId: getOrder
+      summary: Get an order
+      responses:
+        "200": { $ref: "#/components/responses/Order" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "404": { $ref: "#/components/responses/NotFound" }
+
+  /orders/{orderId}/cancellation:
+    parameters:
+      - $ref: "#/components/parameters/OrderId"
+    post:
+      operationId: cancelOrder
+      summary: Cancel an order
+      requestBody: { $ref: "#/components/requestBodies/CancellationInput" }
+      responses:
+        "201": { $ref: "#/components/responses/OrderCancelled" }
+        "200": { $ref: "#/components/responses/Order" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "409": { $ref: "#/components/responses/Conflict" }
+        "422": { $ref: "#/components/responses/Unprocessable" }
+
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: Keycloak JWT.
+
+  parameters:
+    EventId:
+      name: eventId
+      in: path
+      required: true
+      description: Event.
+      schema: { $ref: "#/components/schemas/EventId" }
+    SessionId:
+      name: sessionId
+      in: path
+      required: true
+      description: Session of the event.
+      schema: { $ref: "#/components/schemas/SessionId" }
+    SessionSeatId:
+      name: sessionSeatId
+      in: path
+      required: true
+      description: Seat of a session.
+      schema: { $ref: "#/components/schemas/SessionSeatId" }
+    OrderId:
+      name: orderId
+      in: path
+      required: true
+      description: Order.
+      schema: { $ref: "#/components/schemas/OrderId" }
+    IfNoneMatch:
+      name: If-None-Match
+      in: header
+      description: ETag of a previous answer.
+      schema: { $ref: "#/components/schemas/ETag" }
+    IdempotencyKey:
+      name: Idempotency-Key
+      in: header
+      required: true
+      description: Same key in every retry.
+      schema: { $ref: "#/components/schemas/IdempotencyKey" }
+    Cursor:
+      name: cursor
+      in: query
+      description: nextCursor of the previous page.
+      schema: { $ref: "#/components/schemas/Cursor" }
+    Limit:
+      name: limit
+      in: query
+      description: Page size, at most 200.
+      schema: { $ref: "#/components/schemas/PageLimit" }
+
+  headers:
+    Location:
+      description: URI of the created resource.
+      required: true
+      schema: { type: string, format: uri-reference }
+    ETag:
+      description: Seat map version.
+      required: true
+      schema: { $ref: "#/components/schemas/ETag" }
+    RetryAfter:
+      description: Seconds before retrying.
+      required: true
+      schema: { type: integer, minimum: 1 }
+
+  requestBodies:
+    OrderInput:
+      required: true
+      content:
+        application/json:
+          schema: { $ref: "#/components/schemas/OrderInput" }
+    CancellationInput:
+      required: true
+      content:
+        application/json:
+          schema: { $ref: "#/components/schemas/CancellationInput" }
+
+  responses:
+    EventSales:
+      description: Sales of the event.
+      content:
+        application/json:
+          schema: { $ref: "#/components/schemas/EventSales" }
+    SeatMap:
+      description: Seat map.
+      headers:
+        ETag: { $ref: "#/components/headers/ETag" }
+      content:
+        application/json:
+          schema: { $ref: "#/components/schemas/SeatMap" }
+    SeatStream:
+      description: Server-sent events.
+      content:
+        text/event-stream:
+          schema: { $ref: "#/components/schemas/SeatStreamEvent" }
+    Hold:
+      description: Seat held by the caller.
+      content:
+        application/json:
+          schema: { $ref: "#/components/schemas/Hold" }
+    HoldList:
+      description: Active holds.
+      content:
+        application/json:
+          schema: { $ref: "#/components/schemas/HoldList" }
+    Order:
+      description: Order.
+      content:
+        application/json:
+          schema: { $ref: "#/components/schemas/Order" }
+    OrderCreated:
+      description: Order created.
+      headers:
+        Location: { $ref: "#/components/headers/Location" }
+      content:
+        application/json:
+          schema: { $ref: "#/components/schemas/Order" }
+    OrderCancelled:
+      description: Order cancelled.
+      headers:
+        Location: { $ref: "#/components/headers/Location" }
+      content:
+        application/json:
+          schema: { $ref: "#/components/schemas/Order" }
+    OrderPage:
+      description: Page of orders.
+      content:
+        application/json:
+          schema: { $ref: "#/components/schemas/OrderPage" }
+    NoContent:
+      description: Done, now or before.
+    NotModified:
+      description: Seat map unchanged since If-None-Match.
+      headers:
+        ETag: { $ref: "#/components/headers/ETag" }
+    BadRequest:
+      description: Malformed request.
+      content:
+        application/problem+json:
+          schema: { $ref: "#/components/schemas/Problem" }
+    Unauthorized:
+      description: Missing or invalid token.
+      content:
+        application/problem+json:
+          schema: { $ref: "#/components/schemas/Problem" }
+    Forbidden:
+      description: Not allowed.
+      content:
+        application/problem+json:
+          schema: { $ref: "#/components/schemas/Problem" }
+    NotFound:
+      description: Not found.
+      content:
+        application/problem+json:
+          schema: { $ref: "#/components/schemas/Problem" }
+    Conflict:
+      description: Conflicts with the current state.
+      content:
+        application/problem+json:
+          schema: { $ref: "#/components/schemas/Problem" }
+    Unprocessable:
+      description: Invalid field.
+      content:
+        application/problem+json:
+          schema: { $ref: "#/components/schemas/Problem" }
+    TooManyRequests:
+      description: Rate limit exceeded.
+      headers:
+        Retry-After: { $ref: "#/components/headers/RetryAfter" }
+      content:
+        application/problem+json:
+          schema: { $ref: "#/components/schemas/Problem" }
+    Unavailable:
+      description: Temporarily unavailable.
+      headers:
+        Retry-After: { $ref: "#/components/headers/RetryAfter" }
+      content:
+        application/problem+json:
+          schema: { $ref: "#/components/schemas/Problem" }
+
+  schemas:
+    # Base types
+    EventId: { description: Event identifier., type: string, examples: ["4711"] }
+    SessionId: { description: Session identifier., type: string, examples: ["1"] }
+    SectorId: { description: Sector identifier., type: string, examples: ["1"] }
+    SessionSeatId: { description: Seat of a session (venue, event, session, sector, row, number)., type: string, examples: ["3-4711-1-1-E-14"] }
+    PriceTierId: { description: Price tier identifier., type: string, examples: ["2"] }
+    OrderId: { description: Order identifier., type: string, examples: ["70412"] }
+    Row: { description: Seat row., type: string, minLength: 1, maxLength: 10, examples: [E] }
+    SeatNumber: { description: Seat number in the row., type: integer, minimum: 1, examples: [14] }
+    SeatStatus: { description: Seat state., type: string, enum: [FREE, HELD, SOLD], examples: [FREE] }
+    SeatCount: { description: Number of seats., type: integer, minimum: 0, examples: [2] }
+    ETag: { description: Seat map version., type: string, examples: ['"42"'] }
+    FirstName: { description: First name., type: string, minLength: 1, maxLength: 100, examples: [Anna] }
+    LastName: { description: Last name., type: string, minLength: 1, maxLength: 100, examples: [Rossi] }
+    Email: { description: E-mail address., type: string, format: email, examples: [anna.rossi@example.com] }
+    Reason: { description: Reason given by the customer., type: string, minLength: 1, maxLength: 500, examples: [Cannot attend] }
+    OrderStatus: { description: Order state., type: string, enum: [PENDING, PAID, FAILED, CANCELLED], examples: [PAID] }
+    OrderFailureReason: { description: Why the order failed., type: string, enum: [HOLD_EXPIRED, PAYMENT_DECLINED, PAYMENT_EXPIRED], examples: [PAYMENT_DECLINED] }
+    Instant: { description: Instant with offset., type: string, format: date-time, examples: ["2026-11-20T09:02:00Z"] }
+    Url: { description: Absolute URL., type: string, format: uri, examples: ["https://www.sandbox.paypal.com/checkoutnow?token=5O190127TN364715T"] }
+    Amount: { description: Decimal amount., type: string, pattern: '^\d+\.\d{2}$', examples: ["45.00"] }
+    Currency: { description: ISO 4217 code., type: string, pattern: '^[A-Z]{3}$', examples: [EUR] }
+    IdempotencyKey: { description: Idempotency key., type: string, format: uuid, examples: [3d2b1f0e-6c1a-4b7e-8f2d-9a0c4e5b6d71] }
+    Cursor: { description: Opaque page cursor., type: string, examples: [eyJpZCI6IjcwNDEyIn0] }
+    NextCursor: { description: Cursor of the next page; null on the last., type: [string, "null"], examples: [null] }
+    PageLimit: { description: Page size., type: integer, minimum: 1, default: 20, examples: [20] }
+
+    Money:
+      description: Amount of money.
+      type: object
+      additionalProperties: false
+      required: [amount, currency]
+      properties:
+        amount: { $ref: "#/components/schemas/Amount" }
+        currency: { $ref: "#/components/schemas/Currency" }
+    Holder:
+      description: Ticket holder.
+      type: object
+      additionalProperties: false
+      required: [firstName, lastName]
+      properties:
+        firstName: { $ref: "#/components/schemas/FirstName" }
+        lastName: { $ref: "#/components/schemas/LastName" }
+
+    # Inputs
+    OrderInput:
+      description: New order.
+      type: object
+      additionalProperties: false
+      required: [customerEmail, items]
+      properties:
+        customerEmail: { $ref: "#/components/schemas/Email" }
+        items:
+          description: Held seats to buy.
+          type: array
+          minItems: 1
+          maxItems: 4
+          items: { $ref: "#/components/schemas/OrderItemInput" }
+    OrderItemInput:
+      description: Held seat to buy.
+      type: object
+      additionalProperties: false
+      required: [sessionSeatId, holder]
+      properties:
+        sessionSeatId: { $ref: "#/components/schemas/SessionSeatId" }
+        holder: { $ref: "#/components/schemas/Holder" }
+    CancellationInput:
+      description: Cancellation.
+      type: object
+      additionalProperties: false
+      required: [reason]
+      properties:
+        reason: { $ref: "#/components/schemas/Reason" }
+
+    # Outputs
+    SeatMap:
+      description: Seat map of a session.
+      type: object
+      required: [sessionId, seats]
+      properties:
+        sessionId: { $ref: "#/components/schemas/SessionId" }
+        seats:
+          description: Seats on sale.
+          type: array
+          items: { $ref: "#/components/schemas/SeatState" }
+    SeatState:
+      description: Seat on sale.
+      type: object
+      required: [id, sectorId, row, number, priceTierId, status]
+      properties:
+        id: { $ref: "#/components/schemas/SessionSeatId" }
+        sectorId: { $ref: "#/components/schemas/SectorId" }
+        row: { $ref: "#/components/schemas/Row" }
+        number: { $ref: "#/components/schemas/SeatNumber" }
+        priceTierId: { $ref: "#/components/schemas/PriceTierId" }
+        status: { $ref: "#/components/schemas/SeatStatus" }
+    SeatChange:
+      description: Change of a seat state.
+      type: object
+      required: [sessionSeatId, status]
+      properties:
+        sessionSeatId: { $ref: "#/components/schemas/SessionSeatId" }
+        status: { $ref: "#/components/schemas/SeatStatus" }
+    SeatStreamEvent:
+      description: "Event `snapshot` (SeatMap) first, then `seat` (SeatChange); event id = seat map version; heartbeat every 15 s."
+      oneOf:
+        - $ref: "#/components/schemas/SeatMap"
+        - $ref: "#/components/schemas/SeatChange"
+
+    Hold:
+      description: Seat held by the caller.
+      type: object
+      required: [sessionSeatId, eventId, sessionId, expiresAt]
+      properties:
+        sessionSeatId: { $ref: "#/components/schemas/SessionSeatId" }
+        eventId: { $ref: "#/components/schemas/EventId" }
+        sessionId: { $ref: "#/components/schemas/SessionId" }
+        expiresAt: { $ref: "#/components/schemas/Instant" }
+    HoldList:
+      description: Active holds.
+      type: object
+      required: [items]
+      properties:
+        items:
+          description: Holds.
+          type: array
+          items: { $ref: "#/components/schemas/Hold" }
+
+    OrderItem:
+      description: Seat of an order.
+      type: object
+      required: [sessionSeatId, holder, price]
+      properties:
+        sessionSeatId: { $ref: "#/components/schemas/SessionSeatId" }
+        holder: { $ref: "#/components/schemas/Holder" }
+        price: { $ref: "#/components/schemas/Money" }
+    OrderBase:
+      description: Fields of every order.
+      type: object
+      required: [id, eventId, sessionId, status, orderedAt, customerEmail, total, items]
+      properties:
+        id: { $ref: "#/components/schemas/OrderId" }
+        eventId: { $ref: "#/components/schemas/EventId" }
+        sessionId: { $ref: "#/components/schemas/SessionId" }
+        status: { $ref: "#/components/schemas/OrderStatus" }
+        orderedAt: { $ref: "#/components/schemas/Instant" }
+        customerEmail: { $ref: "#/components/schemas/Email" }
+        total: { $ref: "#/components/schemas/Money" }
+        items:
+          description: Seats of the order.
+          type: array
+          items: { $ref: "#/components/schemas/OrderItem" }
+    PendingOrder:
+      description: Order waiting for payment; paymentUrl absent until the payment is created.
+      allOf:
+        - $ref: "#/components/schemas/OrderBase"
+        - type: object
+          description: Pending fields.
+          properties:
+            status: { description: PENDING., const: PENDING }
+            paymentUrl: { $ref: "#/components/schemas/Url" }
+    PaidOrder:
+      description: Paid order.
+      allOf:
+        - $ref: "#/components/schemas/OrderBase"
+        - type: object
+          description: Paid fields.
+          required: [paidAt]
+          properties:
+            status: { description: PAID., const: PAID }
+            paidAt: { $ref: "#/components/schemas/Instant" }
+    FailedOrder:
+      description: Order never paid.
+      allOf:
+        - $ref: "#/components/schemas/OrderBase"
+        - type: object
+          description: Failed fields.
+          required: [failedAt, failureReason]
+          properties:
+            status: { description: FAILED., const: FAILED }
+            failedAt: { $ref: "#/components/schemas/Instant" }
+            failureReason: { $ref: "#/components/schemas/OrderFailureReason" }
+    CancelledOrder:
+      description: Cancelled order.
+      allOf:
+        - $ref: "#/components/schemas/OrderBase"
+        - type: object
+          description: Cancelled fields.
+          required: [cancelledAt, reason]
+          properties:
+            status: { description: CANCELLED., const: CANCELLED }
+            cancelledAt: { $ref: "#/components/schemas/Instant" }
+            reason: { $ref: "#/components/schemas/Reason" }
+    Order:
+      description: Order; status selects the variant.
+      oneOf:
+        - $ref: "#/components/schemas/PendingOrder"
+        - $ref: "#/components/schemas/PaidOrder"
+        - $ref: "#/components/schemas/FailedOrder"
+        - $ref: "#/components/schemas/CancelledOrder"
+      discriminator:
+        propertyName: status
+        mapping:
+          PENDING: "#/components/schemas/PendingOrder"
+          PAID: "#/components/schemas/PaidOrder"
+          FAILED: "#/components/schemas/FailedOrder"
+          CANCELLED: "#/components/schemas/CancelledOrder"
+    OrderPage:
+      description: Page of orders.
+      type: object
+      required: [items, nextCursor, limit]
+      properties:
+        items:
+          description: Orders.
+          type: array
+          items: { $ref: "#/components/schemas/Order" }
+        nextCursor: { $ref: "#/components/schemas/NextCursor" }
+        limit: { $ref: "#/components/schemas/PageLimit" }
+
+    EventSales:
+      description: Sales of an event.
+      type: object
+      required: [eventId, sold, total, sessions]
+      properties:
+        eventId: { $ref: "#/components/schemas/EventId" }
+        sold: { $ref: "#/components/schemas/SeatCount" }
+        total: { $ref: "#/components/schemas/Money" }
+        sessions:
+          description: Sales per session.
+          type: array
+          items: { $ref: "#/components/schemas/SessionSales" }
+    SessionSales:
+      description: Sales of a session.
+      type: object
+      required: [sessionId, sold, total, priceTiers]
+      properties:
+        sessionId: { $ref: "#/components/schemas/SessionId" }
+        sold: { $ref: "#/components/schemas/SeatCount" }
+        total: { $ref: "#/components/schemas/Money" }
+        priceTiers:
+          description: Sales per price tier.
+          type: array
+          items: { $ref: "#/components/schemas/PriceTierSales" }
+    PriceTierSales:
+      description: Sales of a price tier.
+      type: object
+      required: [priceTierId, price, onSale, sold, total]
+      properties:
+        priceTierId: { $ref: "#/components/schemas/PriceTierId" }
+        price: { $ref: "#/components/schemas/Money" }
+        onSale: { $ref: "#/components/schemas/SeatCount" }
+        sold: { $ref: "#/components/schemas/SeatCount" }
+        total: { $ref: "#/components/schemas/Money" }
+
+    # Errors
+    Problem:
+      description: RFC 9457 problem.
+      type: object
+      required: [type, title, status, code]
+      properties:
+        type: { description: Error class URI., type: string, format: uri, examples: ["https://ticketing.example/problems/seat-taken"] }
+        title: { description: Error class title., type: string, examples: [Seat taken] }
+        status: { description: HTTP status., type: integer, examples: [409] }
+        detail: { description: Explanation., type: string, examples: [Seat E14 is held by another customer.] }
+        instance: { description: Request path., type: string, examples: [/api/v1/holds/3-4711-1-1-E-14] }
+        code: { description: Stable error code., type: string, examples: [seat_taken] }

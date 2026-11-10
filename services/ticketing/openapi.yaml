@@ -1,0 +1,311 @@
+openapi: 3.1.0
+info:
+  title: Ticketing API
+  version: 0.1.0
+servers:
+  - url: http://localhost:8080/api/v1
+    description: API gateway.
+security:
+  - bearerAuth: []
+
+paths:
+  /tickets:
+    get:
+      operationId: listTickets
+      summary: List my tickets
+      parameters:
+        - $ref: "#/components/parameters/OrderIdQuery"
+        - $ref: "#/components/parameters/Cursor"
+        - $ref: "#/components/parameters/Limit"
+      responses:
+        "200": { $ref: "#/components/responses/TicketPage" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "422": { $ref: "#/components/responses/Unprocessable" }
+
+  /tickets/{ticketId}:
+    parameters:
+      - $ref: "#/components/parameters/TicketId"
+    get:
+      operationId: getTicket
+      summary: Get a ticket
+      responses:
+        "200": { $ref: "#/components/responses/Ticket" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "404": { $ref: "#/components/responses/NotFound" }
+
+  /tickets/{ticketId}/pdf:
+    parameters:
+      - $ref: "#/components/parameters/TicketId"
+    get:
+      operationId: getTicketPdf
+      summary: Get a download link for the PDF
+      responses:
+        "200": { $ref: "#/components/responses/DownloadLink" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "409": { $ref: "#/components/responses/Conflict" }
+
+  /tickets/{ticketId}/scans:
+    parameters:
+      - $ref: "#/components/parameters/TicketId"
+    post:
+      operationId: scanTicket
+      summary: Scan a ticket
+      requestBody: { $ref: "#/components/requestBodies/ScanInput" }
+      responses:
+        "201": { $ref: "#/components/responses/ScanCreated" }
+        "200": { $ref: "#/components/responses/Scan" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "409": { $ref: "#/components/responses/Conflict" }
+        "422": { $ref: "#/components/responses/Unprocessable" }
+
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: Keycloak JWT.
+
+  parameters:
+    TicketId:
+      name: ticketId
+      in: path
+      required: true
+      description: Ticket.
+      schema: { $ref: "#/components/schemas/TicketId" }
+    OrderIdQuery:
+      name: orderId
+      in: query
+      description: Only the tickets of this order.
+      schema: { $ref: "#/components/schemas/OrderId" }
+    Cursor:
+      name: cursor
+      in: query
+      description: nextCursor of the previous page.
+      schema: { $ref: "#/components/schemas/Cursor" }
+    Limit:
+      name: limit
+      in: query
+      description: Page size, at most 200.
+      schema: { $ref: "#/components/schemas/PageLimit" }
+
+  headers:
+    Location:
+      description: URI of the created resource.
+      required: true
+      schema: { type: string, format: uri-reference }
+
+  requestBodies:
+    ScanInput:
+      required: true
+      content:
+        application/json:
+          schema: { $ref: "#/components/schemas/ScanInput" }
+
+  responses:
+    Ticket:
+      description: Ticket.
+      content:
+        application/json:
+          schema: { $ref: "#/components/schemas/Ticket" }
+    TicketPage:
+      description: Page of tickets.
+      content:
+        application/json:
+          schema: { $ref: "#/components/schemas/TicketPage" }
+    DownloadLink:
+      description: Temporary download link.
+      content:
+        application/json:
+          schema: { $ref: "#/components/schemas/DownloadLink" }
+    Scan:
+      description: Already admitted; first scan.
+      content:
+        application/json:
+          schema: { $ref: "#/components/schemas/Scan" }
+    ScanCreated:
+      description: Admitted now.
+      headers:
+        Location: { $ref: "#/components/headers/Location" }
+      content:
+        application/json:
+          schema: { $ref: "#/components/schemas/Scan" }
+    BadRequest:
+      description: Malformed request.
+      content:
+        application/problem+json:
+          schema: { $ref: "#/components/schemas/Problem" }
+    Unauthorized:
+      description: Missing or invalid token.
+      content:
+        application/problem+json:
+          schema: { $ref: "#/components/schemas/Problem" }
+    Forbidden:
+      description: Not allowed.
+      content:
+        application/problem+json:
+          schema: { $ref: "#/components/schemas/Problem" }
+    NotFound:
+      description: Not found.
+      content:
+        application/problem+json:
+          schema: { $ref: "#/components/schemas/Problem" }
+    Conflict:
+      description: Conflicts with the current state.
+      content:
+        application/problem+json:
+          schema: { $ref: "#/components/schemas/Problem" }
+    Unprocessable:
+      description: Invalid field.
+      content:
+        application/problem+json:
+          schema: { $ref: "#/components/schemas/Problem" }
+
+  schemas:
+    # Base types
+    TicketId: { description: Ticket identifier, in the QR code., type: string, format: uuid, examples: [7c9e6679-7425-40de-944b-e07fc1f90ae7] }
+    OrderId: { description: Order identifier., type: string, examples: ["70412"] }
+    EventId: { description: Event identifier., type: string, examples: ["4711"] }
+    SessionId: { description: Session identifier., type: string, examples: ["1"] }
+    SessionSeatId: { description: Seat of a session (venue, event, session, sector, row, number)., type: string, examples: ["3-4711-1-1-E-14"] }
+    UserId: { description: Keycloak user identifier., type: string, examples: [b2a1c3d4-0000-4000-8000-000000000001] }
+    EventName: { description: Event name., type: string, minLength: 1, maxLength: 200, examples: ["Aurora Quartet: Winter Tour"] }
+    VenueName: { description: Venue name., type: string, minLength: 1, maxLength: 200, examples: [Teatro Regio] }
+    SectorName: { description: Sector name., type: string, minLength: 1, maxLength: 100, examples: [Stalls] }
+    City: { description: City., type: string, minLength: 1, maxLength: 100, examples: [Torino] }
+    TimeZone: { description: IANA time zone., type: string, examples: [Europe/Rome] }
+    Row: { description: Seat row., type: string, minLength: 1, maxLength: 10, examples: [E] }
+    SeatNumber: { description: Seat number in the row., type: integer, minimum: 1, examples: [14] }
+    FirstName: { description: First name., type: string, minLength: 1, maxLength: 100, examples: [Anna] }
+    LastName: { description: Last name., type: string, minLength: 1, maxLength: 100, examples: [Rossi] }
+    TicketStatus: { description: Ticket state., type: string, enum: [VALID, USED, INVALIDATED], examples: [VALID] }
+    LocalDateTime: { description: Local time of the venue., type: string, pattern: '^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}$', examples: ["2026-12-05T20:00:00"] }
+    Instant: { description: Instant with offset., type: string, format: date-time, examples: ["2026-12-05T18:51:00Z"] }
+    Url: { description: Absolute URL., type: string, format: uri, examples: ["http://localhost:9000/tickets/7c9e6679-7425-40de-944b-e07fc1f90ae7.pdf?X-Amz-Expires=300&X-Amz-Signature=3f1c"] }
+    Amount: { description: Decimal amount., type: string, pattern: '^\d+\.\d{2}$', examples: ["45.00"] }
+    Currency: { description: ISO 4217 code., type: string, pattern: '^[A-Z]{3}$', examples: [EUR] }
+    Cursor: { description: Opaque page cursor., type: string, examples: [eyJpZCI6IjdjOWUifQ] }
+    NextCursor: { description: Cursor of the next page; null on the last., type: [string, "null"], examples: [null] }
+    PageLimit: { description: Page size., type: integer, minimum: 1, default: 20, examples: [20] }
+
+    Money:
+      description: Amount of money.
+      type: object
+      additionalProperties: false
+      required: [amount, currency]
+      properties:
+        amount: { $ref: "#/components/schemas/Amount" }
+        currency: { $ref: "#/components/schemas/Currency" }
+    Holder:
+      description: Ticket holder.
+      type: object
+      additionalProperties: false
+      required: [firstName, lastName]
+      properties:
+        firstName: { $ref: "#/components/schemas/FirstName" }
+        lastName: { $ref: "#/components/schemas/LastName" }
+
+    # Inputs
+    ScanInput:
+      description: Session where the ticket is scanned.
+      type: object
+      additionalProperties: false
+      required: [eventId, sessionId]
+      properties:
+        eventId: { $ref: "#/components/schemas/EventId" }
+        sessionId: { $ref: "#/components/schemas/SessionId" }
+
+    # Outputs
+    Ticket:
+      description: Ticket for one seat.
+      type: object
+      required: [id, orderId, status, event, session, venue, seat, holder, price]
+      properties:
+        id: { $ref: "#/components/schemas/TicketId" }
+        orderId: { $ref: "#/components/schemas/OrderId" }
+        status: { $ref: "#/components/schemas/TicketStatus" }
+        event: { $ref: "#/components/schemas/TicketEvent" }
+        session: { $ref: "#/components/schemas/TicketSession" }
+        venue: { $ref: "#/components/schemas/TicketVenue" }
+        seat: { $ref: "#/components/schemas/TicketSeat" }
+        holder: { $ref: "#/components/schemas/Holder" }
+        price: { $ref: "#/components/schemas/Money" }
+    TicketEvent:
+      description: Event of the ticket.
+      type: object
+      required: [id, name]
+      properties:
+        id: { $ref: "#/components/schemas/EventId" }
+        name: { $ref: "#/components/schemas/EventName" }
+    TicketSession:
+      description: Session of the ticket, in local time of the venue.
+      type: object
+      required: [id, startsAt, endsAt]
+      properties:
+        id: { $ref: "#/components/schemas/SessionId" }
+        startsAt: { $ref: "#/components/schemas/LocalDateTime" }
+        endsAt: { $ref: "#/components/schemas/LocalDateTime" }
+    TicketVenue:
+      description: Venue of the session.
+      type: object
+      required: [name, city, timeZone]
+      properties:
+        name: { $ref: "#/components/schemas/VenueName" }
+        city: { $ref: "#/components/schemas/City" }
+        timeZone: { $ref: "#/components/schemas/TimeZone" }
+    TicketSeat:
+      description: Seat of the ticket.
+      type: object
+      required: [id, sectorName, row, number]
+      properties:
+        id: { $ref: "#/components/schemas/SessionSeatId" }
+        sectorName: { $ref: "#/components/schemas/SectorName" }
+        row: { $ref: "#/components/schemas/Row" }
+        number: { $ref: "#/components/schemas/SeatNumber" }
+    TicketPage:
+      description: Page of tickets.
+      type: object
+      required: [items, nextCursor, limit]
+      properties:
+        items:
+          description: Tickets.
+          type: array
+          items: { $ref: "#/components/schemas/Ticket" }
+        nextCursor: { $ref: "#/components/schemas/NextCursor" }
+        limit: { $ref: "#/components/schemas/PageLimit" }
+    DownloadLink:
+      description: Pre-signed link, no token needed.
+      type: object
+      required: [url, expiresAt]
+      properties:
+        url: { $ref: "#/components/schemas/Url" }
+        expiresAt: { $ref: "#/components/schemas/Instant" }
+    Scan:
+      description: First admission of a ticket.
+      type: object
+      required: [ticketId, scannedAt, gateStaffId]
+      properties:
+        ticketId: { $ref: "#/components/schemas/TicketId" }
+        scannedAt: { $ref: "#/components/schemas/Instant" }
+        gateStaffId: { $ref: "#/components/schemas/UserId" }
+
+    # Errors
+    Problem:
+      description: RFC 9457 problem.
+      type: object
+      required: [type, title, status, code]
+      properties:
+        type: { description: Error class URI., type: string, format: uri, examples: ["https://ticketing.example/problems/not-found"] }
+        title: { description: Error class title., type: string, examples: [Not found] }
+        status: { description: HTTP status., type: integer, examples: [404] }
+        detail: { description: Explanation., type: string, examples: [Ticket 7c9e6679-7425-40de-944b-e07fc1f90ae7 does not exist.] }
+        instance: { description: Request path., type: string, examples: [/api/v1/tickets/7c9e6679-7425-40de-944b-e07fc1f90ae7] }
+        code: { description: Stable error code., type: string, examples: [not_found] }
