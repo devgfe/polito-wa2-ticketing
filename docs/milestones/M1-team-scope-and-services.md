@@ -17,7 +17,7 @@
 
 The platform sells tickets for events with reserved seating.
 
-An organiser describes a venue through its seating plan, made of sectors, rows and seats. An event can take place in one or more sessions, each with its own date, time and set of seats. Within each session, the seats are grouped into price tiers. When the event is ready, the organiser publishes it with the time at which sales open. The organiser can then follow the sales on a dashboard.
+An organiser describes a venue through its seating plan, made of sectors, rows and seats; any organiser can then use that venue for their own events. Once a venue is used by a published event, its seating plan can no longer change. An event can take place in one or more sessions, each with its own date, time and set of seats. Within each session, the seats are grouped into price tiers. When the event is ready, the organiser publishes it with the time at which sales open. The organiser can then follow the sales on a dashboard.
 
 Customers browse and search the catalogue of published events. Once sales are open, they choose up to four free seats on the seat map of a session and hold them while they complete the purchase. After the payment, the purchase becomes an order, and the customer receives one ticket for each seat. Customers can cancel an order within the refund window and get their money back. They are notified about their orders.
 
@@ -27,7 +27,7 @@ In each session, every seat is always in exactly one of three states:
 
 - **Free**: the seat is available and is shown as free on the seat map.
 - **Held**: the seat is reserved for one customer for about ten minutes, while that customer completes the purchase.
-- **Sold**: the seat is paid and a ticket has been issued for it.
+- **Sold**: the seat belongs to a paid order; one ticket is issued for it.
 
 A seat changes state only in these cases:
 
@@ -45,7 +45,7 @@ No other change is possible. For example, a free seat cannot become sold without
 
 Sales open at a published time, so many customers arrive together. Within seconds, traffic can reach about a hundred times its usual level.
 
-Some tasks are handled by external systems: user accounts and login (Keycloak), payments (a payment provider, in sandbox mode), and the actual delivery of e-mails and push messages.
+Some tasks are handled by external systems: user accounts and login (Keycloak), payments (PayPal, in sandbox mode), the actual delivery of e-mails and push messages, and the storage of files such as the PDF of each ticket (an S3-compatible object storage; RustFS in the local setup).
 
 ### 2.2 Stakeholders
 
@@ -57,6 +57,7 @@ Some tasks are handled by external systems: user accounts and login (Keycloak), 
 | Keycloak | External identity provider: user accounts, login and roles. |
 | Payment provider | External system that authorises, captures and refunds payments. |
 | E-mail / push delivery | External service that delivers the e-mails and push messages sent by the platform. |
+| Object storage | External S3-compatible storage that keeps files, such as the PDF of each ticket. |
 
 ### 2.3 Context diagram and interfaces
 
@@ -68,6 +69,8 @@ flowchart LR
   customer["Customer"]
   organiser["Organiser"]
   gate["Gate staff"]
+  kc["Keycloak"]
+  os["Object storage"]
   sys(("Ticketing platform"))
   psp["Payment provider"]
   mail["E-mail / push delivery"]
@@ -77,11 +80,13 @@ flowchart LR
   gate --> sys
   sys --> psp
   sys --> mail
+  sys --> kc
+  sys --> os
 
   classDef own fill:#E1F5EE,stroke:#0F6E56,color:#04342C
   classDef ext fill:#F1EFE8,stroke:#5F5E5A,color:#2C2C2A
   class sys own
-  class customer,organiser,gate,psp,mail ext
+  class customer,organiser,gate,kc,psp,mail,os ext
 ```
 
 #### Interfaces
@@ -91,8 +96,10 @@ flowchart LR
 | Customer | Device with a web browser, Internet | Customer app (web GUI) |
 | Organiser | Device with a web browser, Internet | Organiser back-office (web GUI) |
 | Gate staff | Ticket scanner at the entrance, Internet | Gate scanner app (GUI) |
-| Payment provider | Internet | Payment provider API (sandbox) and payment notifications (webhooks) |
+| Keycloak | Internet | OpenID Connect login and tokens |
+| Payment provider | Internet | PayPal REST API (sandbox) and payment notifications (webhooks) |
 | E-mail / push delivery | Internet | E-mail / push delivery API |
+| Object storage | Internet | S3 API (pre-signed URLs) |
 
 ### 2.4 Functional and non-functional requirements
 
@@ -101,13 +108,14 @@ flowchart LR
 | ID | Name | Description |
 | :--- | :--- | :--- |
 | FR1 | Manage catalogue | |
-| FR1.1 | | Create and update venues, each with a seating plan (sectors, rows, seats) |
-| FR1.2 | | Create and update events, each with one or more sessions (date and time) and a sales opening time |
+| FR1.1 | | Create venues, each with a seating plan (sectors, rows, seats), and update or delete the venues one created |
+| FR1.2 | | Create, update and delete events, each with one or more sessions (date, start and end time, end of sales) and a sales opening time |
 | FR1.3 | | Define price tiers and assign each one to a set of seats of a session |
 | FR1.4 | | Publish an event |
+| FR1.5 | | List and search the existing venues, to use them for an event |
 | FR2 | Browse catalogue | |
 | FR2.1 | | List the published events |
-| FR2.2 | | Search the published events by text |
+| FR2.2 | | Search the published events |
 | FR2.3 | | Show the details of an event (venue, sessions) |
 | FR3 | Hold seats | |
 | FR3.1 | | Show the seat map of a session, with the price tier and the state (free, held, sold) of each seat |
@@ -120,9 +128,10 @@ flowchart LR
 | FR4.1 | | Pay for the held seats through the payment provider |
 | FR4.2 | | Record the purchase as an order, linked to its payment |
 | FR4.3 | | Mark the seats of a paid order as sold |
-| FR4.4 | | Issue one ticket for each seat of a paid order |
-| FR4.5 | | Send the order confirmation and the tickets to the customer (e-mail or push message) |
+| FR4.4 | | Issue one ticket for each seat of a paid order, in the name of the holder indicated by the customer |
+| FR4.5 | | Send the customer the order confirmation, with a link to their tickets in the customer app (e-mail or push message) |
 | FR4.6 | | Show the customer the state of an order |
+| FR4.7 | | Show the customer their tickets and let them download each one as a PDF |
 | FR5 | Cancel orders | |
 | FR5.1 | | Cancel an order within the refund window |
 | FR5.2 | | Refund the payment of a cancelled order through the payment provider |
@@ -132,7 +141,7 @@ flowchart LR
 | FR5.6 | | Notify the customer of the cancellation and refund |
 | FR6 | Validate tickets | |
 | FR6.1 | | Validate a ticket at the venue entrance |
-| FR6.2 | | Record every scan of a ticket |
+| FR6.2 | | Record the first scan of each ticket |
 | FR6.3 | | Give the result of the first scan when the same ticket is scanned again |
 | FR7 | Show sales dashboard | |
 | FR7.1 | | Show the organiser the sales of their events |
@@ -151,7 +160,7 @@ flowchart LR
 | NFR4 | Reliability | Purchases and refunds stay correct even if the payment provider is slow, unavailable, or reports results asynchronously or out of order | FR4, FR5 |
 | NFR5 | Efficiency | Ticket validation at the entrance is fast | FR6 |
 | NFR6 | Scalability | When sales open, traffic can reach about 100 times the usual level within seconds: the platform serves it or refuses the excess in a controlled way | FR3, FR4 |
-| NFR7 | Security | Customers can see only their own holds, orders and tickets; organisers can change only their own events | FR1, FR3, FR4, FR5, FR7 |
+| NFR7 | Security | Customers can see only their own holds, orders and tickets; organisers can change only the venues they created and their own events | FR1, FR3, FR4, FR5, FR7 |
 | NFR8 | Portability | The whole platform starts with one command (docker compose up) from a clean copy of the repository | All FR |
 
 ### 2.5 Table of rights
@@ -161,8 +170,10 @@ flowchart LR
 | Customer | | X | X | X | X | | | X |
 | Organiser | X | | | | | | X | X |
 | Gate staff | | | | | | X | | X |
+| Keycloak | | | | | | | | |
 | Payment provider | | | | | | | | |
 | E-mail / push delivery | | | | | | | | |
+| Object storage | | | | | | | | |
 
 ### 2.6 Use cases
 
@@ -173,7 +184,7 @@ flowchart LR
 | UC1 Manage catalogue | Put an event on sale | The organiser creates a venue with its seating plan and an event with its sessions and price tiers, sets the sales opening time and publishes the event. |
 | UC2 Browse catalogue | Find an event | The customer lists or searches the published events and opens the details of one of them. |
 | UC3 Hold seats | Reserve seats while buying | Once sales are open, the customer picks up to four free seats on the live seat map and holds them for about ten minutes. The customer can release the hold; otherwise it expires on its own. |
-| UC4 Buy tickets | Turn held seats into tickets | The customer pays for the held seats through the payment provider. The platform records the order, marks the seats as sold, issues one ticket per seat and sends the tickets to the customer. |
+| UC4 Buy tickets | Turn held seats into tickets | The customer pays for the held seats through the payment provider. The platform records the order, marks the seats as sold, issues one ticket per seat and sends the customer a link to the tickets. |
 | UC5 Cancel order | Get a refund | Within the refund window, the customer cancels an order. The payment is refunded, the seats become free again and the customer is notified. |
 | UC6 Validate ticket | Let ticket holders in | Gate staff scan a ticket at the entrance and get the result. Scanning the same ticket again gives the result of the first scan. |
 | UC7 Monitor sales | Follow the sales of an event | The organiser looks at the sales dashboard, with the totals of each session. |
@@ -204,23 +215,25 @@ flowchart LR
   gdev -- "Internet" --- server
   server -- "Internet" --- psp
   server -- "Internet" --- mail
+  server -- "Internet" --- os["Object storage"]
+  cdev -- "Internet" --- os
 
   classDef own fill:#E1F5EE,stroke:#0F6E56,color:#04342C
   classDef ext fill:#F1EFE8,stroke:#5F5E5A,color:#2C2C2A
   class be own
-  class spa,bo,scan,psp,mail ext
+  class spa,bo,scan,psp,mail,os ext
 ```
 
 ## 3. Proposed services
 
 We adopt the decomposition suggested by the course:
 
-- **API gateway / BFF**: The single entry point of the platform: the customer app, the organiser back-office and the gate scanner talk only to it, and it forwards each request to the right service after a first check of the user's identity.
+- **API gateway / BFF**: The single entry point to the platform’s services: the customer app, the organiser back-office and the gate scanner send every API request to it, and it forwards each request to the right service after a first check of the user’s identity.
 - **Catalogue**: Holds what is on sale: organisers use it to publish venues, events, sessions and prices, while customers browse and search it.
 - **Inventory & orders**: The heart of the purchase: it shows which seats are free, reserves them for about ten minutes while the customer pays, and turns the reservation into an order. Seats and orders live in the same service because they must always change together.
 - **Payments**: Handles the money: it charges the customer through the external payment provider and refunds cancelled orders.
-- **Ticketing**: Issues a ticket for every seat of a paid order and validates tickets at the entrance.
-- **Notifications**: Sends customers their tickets and other updates by e-mail or push message.
+- **Ticketing**: Issues a ticket for every seat of a paid order, stores its PDF in the object storage, and validates tickets at the entrance.
+- **Notifications**: Sends customers the order confirmation with a link to their tickets, and other updates, by e-mail or push message.
 
 ```mermaid
 %%{init: {"flowchart": {"htmlLabels": false}}}%%
@@ -236,9 +249,11 @@ flowchart TB
   ntf["Notifications"]
   psp["Payment provider"]
   mail["E-mail / push delivery"]
+  os["Object storage"]
 
   clients --> gw
   clients --> kc
+  clients --> os
   gw --> cat
   gw --> inv
   gw --> tix
@@ -249,11 +264,13 @@ flowchart TB
   tix <-.-> mq
   mq -.-> ntf
   ntf --> mail
+  tix --> os
+  pay <-.-> mq
 
   classDef own fill:#E1F5EE,stroke:#0F6E56,color:#04342C
   classDef ext fill:#F1EFE8,stroke:#5F5E5A,color:#2C2C2A
   class gw,cat,inv,tix,pay,ntf own
-  class clients,kc,psp,mq,mail ext
+  class clients,kc,psp,mq,mail,os ext
 ```
 
 ## 4. Stack assignment
