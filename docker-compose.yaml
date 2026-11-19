@@ -1,0 +1,128 @@
+name: wa2-ticketing
+
+services:
+  # ======================= infrastructure =======================
+
+  postgres:
+    image: postgres:18
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres-dev-secret
+    ports:
+      - "5433:5432"          # host 5433, as in the course stack
+    volumes:
+      - pgdata:/var/lib/postgresql              # postgres:18 mount point (see course stack)
+      - ./infra/postgres:/docker-entrypoint-initdb.d:ro   # init.sql runs once, on first start
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  adminer:
+    image: adminer:latest
+    ports:
+      - "8090:8080"          # http://localhost:8090  (server: postgres)
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  keycloak:
+    image: quay.io/keycloak/keycloak:26.7
+    command: start-dev --import-realm
+    environment:
+      KC_BOOTSTRAP_ADMIN_USERNAME: admin
+      KC_BOOTSTRAP_ADMIN_PASSWORD: admin
+    ports:
+      - "8180:8080"          # http://localhost:8180  (admin / admin)
+    volumes:
+      - ./infra/keycloak:/opt/keycloak/data/import:ro  # imports realm-wa2.json
+
+  rustfs:
+    image: rustfs/rustfs:latest
+    environment:
+      RUSTFS_ACCESS_KEY: rustfsadmin
+      RUSTFS_SECRET_KEY: rustfs-dev-secret
+      RUSTFS_VOLUMES: /data
+      RUSTFS_ADDRESS: 0.0.0.0:9000
+      RUSTFS_CONSOLE_ADDRESS: 0.0.0.0:9001
+      RUSTFS_CONSOLE_ENABLE: "true"
+    ports:
+      - "9000:9000"          # S3 API
+      - "9001:9001"          # console: http://localhost:9001/rustfs/console/
+    volumes:
+      - rustfsdata:/data
+
+  # ========================== services ==========================
+
+  gateway:
+    build: ./services/gateway
+    environment:
+      PORT: 8080
+      CATALOGUE_URL: http://catalogue:8080
+      INVENTORY_ORDERS_URL: http://inventory-orders:8080
+      TICKETING_URL: http://ticketing:8080
+      PAYMENTS_URL: http://payments:8080
+    ports:
+      - "8080:8080"
+    depends_on:
+      - catalogue
+      - inventory-orders
+      - payments
+      - ticketing
+
+  catalogue:
+    build: ./services/catalogue
+    environment:
+      PORT: 8080
+      RUST_LOG: info
+      DATABASE_URL: postgres://catalogue:catalogue@postgres:5432/catalogue
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  inventory-orders:
+    build: ./services/inventory-orders
+    environment:
+      PORT: 8080
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/inventory_orders
+      PAYMENTS_URL: http://payments:8080
+    depends_on:
+      postgres:
+        condition: service_healthy
+      payments:
+        condition: service_started
+
+  payments:
+    build: ./services/payments
+    environment:
+      PORT: 8080
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/payments
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  notifications:
+    build: ./services/notifications
+    environment:
+      PORT: 8080
+
+  ticketing:
+    build: ./services/ticketing
+    environment:
+      PORT: 8080
+      RUST_LOG: info
+      DATABASE_URL: postgres://ticketing:ticketing@postgres:5432/ticketing
+      S3_ENDPOINT: http://rustfs:9000
+      S3_ACCESS_KEY: rustfsadmin
+      S3_SECRET_KEY: rustfs-dev-secret
+      S3_BUCKET: tickets
+    depends_on:
+      postgres:
+        condition: service_healthy
+      rustfs:
+        condition: service_started
+
+volumes:
+  pgdata:
+  rustfsdata:

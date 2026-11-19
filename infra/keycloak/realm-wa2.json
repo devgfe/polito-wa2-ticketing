@@ -1,0 +1,193 @@
+{
+  "realm": "wa2",
+  "enabled": true,
+  "displayName": "Web Applications 2 \u2014 ticketing",
+  "sslRequired": "external",
+  "registrationAllowed": false,
+  "accessTokenLifespan": 300,
+  "roles": {
+    "realm": [
+      {
+        "name": "customer",
+        "description": "Buys tickets and manages own orders"
+      },
+      {
+        "name": "organiser",
+        "description": "Publishes events and reads own sales"
+      },
+      {
+        "name": "gate",
+        "description": "Validates tickets at the venue entrance"
+      },
+      {
+        "name": "admin",
+        "description": "Platform administration (audited)"
+      }
+    ]
+  },
+  "clients": [
+    {
+      "clientId": "wa2-spa",
+      "name": "Ticketing SPA (public, PKCE)",
+      "enabled": true,
+      "publicClient": true,
+      "protocol": "openid-connect",
+      "standardFlowEnabled": true,
+      "directAccessGrantsEnabled": false,
+      "attributes": {
+        "pkce.code.challenge.method": "S256"
+      },
+      "redirectUris": [
+        "http://localhost:5173/*"
+      ],
+      "webOrigins": [
+        "http://localhost:5173"
+      ]
+    },
+    {
+      "clientId": "wa2-service",
+      "name": "Backend service (confidential, client credentials)",
+      "enabled": true,
+      "publicClient": false,
+      "protocol": "openid-connect",
+      "secret": "wa2-service-dev-secret",
+      "standardFlowEnabled": false,
+      "serviceAccountsEnabled": true,
+      "directAccessGrantsEnabled": false
+    },
+    {
+      "clientId": "wa2-api",
+      "name": "Resource-server audience for the ticketing API",
+      "enabled": true,
+      "publicClient": false,
+      "protocol": "openid-connect",
+      "bearerOnly": true
+    },
+    {
+      "clientId": "wa2-test",
+      "name": "Test-only client (direct access grant) \u2014 mints USER tokens for checkpoints",
+      "enabled": true,
+      "publicClient": false,
+      "protocol": "openid-connect",
+      "secret": "wa2-test-dev-secret",
+      "standardFlowEnabled": false,
+      "directAccessGrantsEnabled": true,
+      "serviceAccountsEnabled": false
+    }
+  ],
+  "clientScopes": [
+    {
+      "name": "wa2-audience",
+      "protocol": "openid-connect",
+      "attributes": {
+        "include.in.token.scope": "false"
+      },
+      "protocolMappers": [
+        {
+          "name": "wa2-api-audience",
+          "protocol": "openid-connect",
+          "protocolMapper": "oidc-audience-mapper",
+          "config": {
+            "included.client.audience": "wa2-api",
+            "access.token.claim": "true",
+            "id.token.claim": "false"
+          }
+        }
+      ]
+    }
+  ],
+  "defaultDefaultClientScopes": [
+    "wa2-audience",
+    "profile",
+    "email",
+    "roles"
+  ],
+  "users": [
+    {
+      "username": "anna",
+      "enabled": true,
+      "firstName": "Anna",
+      "lastName": "Customer",
+      "email": "anna@example.test",
+      "credentials": [
+        {
+          "type": "password",
+          "value": "wa2-demo",
+          "temporary": false
+        }
+      ],
+      "realmRoles": [
+        "customer"
+      ]
+    },
+    {
+      "username": "ben",
+      "enabled": true,
+      "firstName": "Ben",
+      "lastName": "Customer",
+      "email": "ben@example.test",
+      "credentials": [
+        {
+          "type": "password",
+          "value": "wa2-demo",
+          "temporary": false
+        }
+      ],
+      "realmRoles": [
+        "customer"
+      ]
+    },
+    {
+      "username": "oscar",
+      "enabled": true,
+      "firstName": "Oscar",
+      "lastName": "Organiser",
+      "email": "oscar@example.test",
+      "credentials": [
+        {
+          "type": "password",
+          "value": "wa2-demo",
+          "temporary": false
+        }
+      ],
+      "realmRoles": [
+        "organiser"
+      ]
+    },
+    {
+      "username": "gaia",
+      "enabled": true,
+      "firstName": "Gaia",
+      "lastName": "Gate",
+      "email": "gaia@example.test",
+      "credentials": [
+        {
+          "type": "password",
+          "value": "wa2-demo",
+          "temporary": false
+        }
+      ],
+      "realmRoles": [
+        "gate"
+      ]
+    },
+    {
+      "username": "ada",
+      "enabled": true,
+      "firstName": "Ada",
+      "lastName": "Admin",
+      "email": "ada@example.test",
+      "credentials": [
+        {
+          "type": "password",
+          "value": "wa2-demo",
+          "temporary": false
+        }
+      ],
+      "realmRoles": [
+        "admin",
+        "organiser"
+      ]
+    }
+  ]
+}

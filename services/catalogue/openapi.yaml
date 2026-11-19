@@ -1,0 +1,698 @@
+openapi: 3.1.0
+info:
+  title: Catalogue API
+  version: 0.1.0
+servers:
+  - url: http://localhost:8080/api/v1
+    description: API gateway.
+security:
+  - bearerAuth: []
+
+paths:
+  /venues:
+    get:
+      operationId: listVenues
+      summary: List venues
+      parameters:
+        - $ref: "#/components/parameters/City"
+        - $ref: "#/components/parameters/Cursor"
+        - $ref: "#/components/parameters/Limit"
+      responses:
+        "200": { $ref: "#/components/responses/VenuePage" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "422": { $ref: "#/components/responses/Unprocessable" }
+    post:
+      operationId: createVenue
+      summary: Create a venue
+      requestBody: { $ref: "#/components/requestBodies/VenueInput" }
+      responses:
+        "201": { $ref: "#/components/responses/VenueCreated" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "422": { $ref: "#/components/responses/Unprocessable" }
+
+  /venues/{venueId}:
+    parameters:
+      - $ref: "#/components/parameters/VenueId"
+    get:
+      operationId: getVenue
+      summary: Get a venue
+      responses:
+        "200": { $ref: "#/components/responses/Venue" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+    patch:
+      operationId: updateVenue
+      summary: Update a venue
+      requestBody: { $ref: "#/components/requestBodies/VenuePatch" }
+      responses:
+        "200": { $ref: "#/components/responses/Venue" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "409": { $ref: "#/components/responses/Conflict" }
+        "422": { $ref: "#/components/responses/Unprocessable" }
+    delete:
+      operationId: deleteVenue
+      summary: Delete a venue
+      responses:
+        "204": { $ref: "#/components/responses/NoContent" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "409": { $ref: "#/components/responses/Conflict" }
+
+  /events:
+    get:
+      operationId: listEvents
+      summary: List and search events
+      security: [{}, { bearerAuth: [] }]
+      parameters:
+        - $ref: "#/components/parameters/City"
+        - $ref: "#/components/parameters/Cursor"
+        - $ref: "#/components/parameters/Limit"
+      responses:
+        "200": { $ref: "#/components/responses/EventPage" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "422": { $ref: "#/components/responses/Unprocessable" }
+    post:
+      operationId: createEvent
+      summary: Create an event
+      requestBody: { $ref: "#/components/requestBodies/EventInput" }
+      responses:
+        "201": { $ref: "#/components/responses/EventCreated" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "422": { $ref: "#/components/responses/Unprocessable" }
+
+  /events/{eventId}:
+    parameters:
+      - $ref: "#/components/parameters/EventId"
+    get:
+      operationId: getEvent
+      summary: Get an event
+      security: [{}, { bearerAuth: [] }]
+      responses:
+        "200": { $ref: "#/components/responses/Event" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "404": { $ref: "#/components/responses/NotFound" }
+    patch:
+      operationId: updateEvent
+      summary: Update an event
+      requestBody: { $ref: "#/components/requestBodies/EventPatch" }
+      responses:
+        "200": { $ref: "#/components/responses/Event" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "409": { $ref: "#/components/responses/Conflict" }
+        "422": { $ref: "#/components/responses/Unprocessable" }
+    delete:
+      operationId: deleteEvent
+      summary: Delete a draft event
+      responses:
+        "204": { $ref: "#/components/responses/NoContent" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "409": { $ref: "#/components/responses/Conflict" }
+
+  /events/{eventId}/publication:
+    parameters:
+      - $ref: "#/components/parameters/EventId"
+    post:
+      operationId: publishEvent
+      summary: Publish an event
+      responses:
+        "201": { $ref: "#/components/responses/PublicationCreated" }
+        "200": { $ref: "#/components/responses/Publication" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "409": { $ref: "#/components/responses/Conflict" }
+
+  /events/{eventId}/sessions:
+    parameters:
+      - $ref: "#/components/parameters/EventId"
+    post:
+      operationId: createSession
+      summary: Create a session
+      requestBody: { $ref: "#/components/requestBodies/SessionInput" }
+      responses:
+        "201": { $ref: "#/components/responses/SessionCreated" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "422": { $ref: "#/components/responses/Unprocessable" }
+
+  /events/{eventId}/sessions/{sessionId}:
+    parameters:
+      - $ref: "#/components/parameters/EventId"
+      - $ref: "#/components/parameters/SessionId"
+    get:
+      operationId: getSession
+      summary: Get a session
+      security: [{}, { bearerAuth: [] }]
+      responses:
+        "200": { $ref: "#/components/responses/Session" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "404": { $ref: "#/components/responses/NotFound" }
+    patch:
+      operationId: updateSession
+      summary: Update a session
+      requestBody: { $ref: "#/components/requestBodies/SessionPatch" }
+      responses:
+        "200": { $ref: "#/components/responses/Session" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "409": { $ref: "#/components/responses/Conflict" }
+        "422": { $ref: "#/components/responses/Unprocessable" }
+    delete:
+      operationId: deleteSession
+      summary: Delete a session
+      responses:
+        "204": { $ref: "#/components/responses/NoContent" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "409": { $ref: "#/components/responses/Conflict" }
+
+  /events/{eventId}/sessions/{sessionId}/price-tiers/{priceTierId}:
+    parameters:
+      - $ref: "#/components/parameters/EventId"
+      - $ref: "#/components/parameters/SessionId"
+      - $ref: "#/components/parameters/PriceTierId"
+    patch:
+      operationId: updatePriceTier
+      summary: Update a price tier
+      requestBody: { $ref: "#/components/requestBodies/PriceTierPatch" }
+      responses:
+        "200": { $ref: "#/components/responses/PriceTier" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "409": { $ref: "#/components/responses/Conflict" }
+        "422": { $ref: "#/components/responses/Unprocessable" }
+
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: Keycloak JWT.
+
+  parameters:
+    VenueId:
+      name: venueId
+      in: path
+      required: true
+      description: Venue.
+      schema: { $ref: "#/components/schemas/VenueId" }
+    EventId:
+      name: eventId
+      in: path
+      required: true
+      description: Event.
+      schema: { $ref: "#/components/schemas/EventId" }
+    SessionId:
+      name: sessionId
+      in: path
+      required: true
+      description: Session of the event.
+      schema: { $ref: "#/components/schemas/SessionId" }
+    PriceTierId:
+      name: priceTierId
+      in: path
+      required: true
+      description: Price tier of the session.
+      schema: { $ref: "#/components/schemas/PriceTierId" }
+    City:
+      name: city
+      in: query
+      description: Venue city.
+      schema: { $ref: "#/components/schemas/City" }
+    Cursor:
+      name: cursor
+      in: query
+      description: nextCursor of the previous page.
+      schema: { $ref: "#/components/schemas/Cursor" }
+    Limit:
+      name: limit
+      in: query
+      description: Page size, at most 200.
+      schema: { $ref: "#/components/schemas/PageLimit" }
+
+  headers:
+    Location:
+      description: URI of the created resource.
+      required: true
+      schema: { type: string, format: uri-reference }
+
+  requestBodies:
+    VenueInput:
+      required: true
+      content:
+        application/json:
+          schema: { $ref: "#/components/schemas/VenueInput" }
+    VenuePatch:
+      required: true
+      content:
+        application/merge-patch+json:
+          schema: { $ref: "#/components/schemas/VenuePatch" }
+    EventInput:
+      required: true
+      content:
+        application/json:
+          schema: { $ref: "#/components/schemas/EventInput" }
+    EventPatch:
+      required: true
+      content:
+        application/merge-patch+json:
+          schema: { $ref: "#/components/schemas/EventPatch" }
+    SessionInput:
+      required: true
+      content:
+        application/json:
+          schema: { $ref: "#/components/schemas/SessionInput" }
+    SessionPatch:
+      required: true
+      content:
+        application/merge-patch+json:
+          schema: { $ref: "#/components/schemas/SessionPatch" }
+    PriceTierPatch:
+      required: true
+      content:
+        application/merge-patch+json:
+          schema: { $ref: "#/components/schemas/PriceTierPatch" }
+
+  responses:
+    Venue:
+      description: Venue.
+      content:
+        application/json:
+          schema: { $ref: "#/components/schemas/Venue" }
+    VenueCreated:
+      description: Venue created.
+      headers:
+        Location: { $ref: "#/components/headers/Location" }
+      content:
+        application/json:
+          schema: { $ref: "#/components/schemas/Venue" }
+    VenuePage:
+      description: Page of venues.
+      content:
+        application/json:
+          schema: { $ref: "#/components/schemas/VenuePage" }
+    Event:
+      description: Event.
+      content:
+        application/json:
+          schema: { $ref: "#/components/schemas/Event" }
+    EventCreated:
+      description: Event created as a draft.
+      headers:
+        Location: { $ref: "#/components/headers/Location" }
+      content:
+        application/json:
+          schema: { $ref: "#/components/schemas/Event" }
+    EventPage:
+      description: Page of events.
+      content:
+        application/json:
+          schema: { $ref: "#/components/schemas/EventPage" }
+    Publication:
+      description: Event already published.
+      content:
+        application/json:
+          schema: { $ref: "#/components/schemas/Publication" }
+    PublicationCreated:
+      description: Event published.
+      headers:
+        Location: { $ref: "#/components/headers/Location" }
+      content:
+        application/json:
+          schema: { $ref: "#/components/schemas/Publication" }
+    Session:
+      description: Session.
+      content:
+        application/json:
+          schema: { $ref: "#/components/schemas/Session" }
+    SessionCreated:
+      description: Session created.
+      headers:
+        Location: { $ref: "#/components/headers/Location" }
+      content:
+        application/json:
+          schema: { $ref: "#/components/schemas/Session" }
+    PriceTier:
+      description: Price tier.
+      content:
+        application/json:
+          schema: { $ref: "#/components/schemas/PriceTier" }
+    NoContent:
+      description: Done, now or before.
+    BadRequest:
+      description: Malformed request.
+      content:
+        application/problem+json:
+          schema: { $ref: "#/components/schemas/Problem" }
+    Unauthorized:
+      description: Missing or invalid token.
+      content:
+        application/problem+json:
+          schema: { $ref: "#/components/schemas/Problem" }
+    Forbidden:
+      description: Not allowed.
+      content:
+        application/problem+json:
+          schema: { $ref: "#/components/schemas/Problem" }
+    NotFound:
+      description: Not found.
+      content:
+        application/problem+json:
+          schema: { $ref: "#/components/schemas/Problem" }
+    Conflict:
+      description: Conflicts with the current state.
+      content:
+        application/problem+json:
+          schema: { $ref: "#/components/schemas/Problem" }
+    Unprocessable:
+      description: Invalid field.
+      content:
+        application/problem+json:
+          schema: { $ref: "#/components/schemas/Problem" }
+
+  schemas:
+    # Base types
+    VenueId: { description: Venue identifier., type: string, examples: ["3"] }
+    SectorId: { description: Sector identifier., type: string, examples: ["1"] }
+    SeatId: { description: Seat identifier., type: string, examples: ["1-E-14"] }
+    EventId: { description: Event identifier., type: string, examples: ["4711"] }
+    SessionId: { description: Session identifier., type: string, examples: ["1"] }
+    PriceTierId: { description: Price tier identifier., type: string, examples: ["2"] }
+    VenueName: { description: Venue name., type: string, minLength: 1, maxLength: 200, examples: [Teatro Regio] }
+    SectorName: { description: Sector name., type: string, minLength: 1, maxLength: 100, examples: [Stalls] }
+    EventName: { description: Event name., type: string, minLength: 1, maxLength: 200, examples: ["Aurora Quartet: Winter Tour"] }
+    PriceTierName: { description: Price tier name., type: string, minLength: 1, maxLength: 100, examples: [Gold] }
+    City: { description: City., type: string, minLength: 1, maxLength: 100, examples: [Torino] }
+    TimeZone: { description: IANA time zone., type: string, examples: [Europe/Rome] }
+    Row: { description: Seat row., type: string, minLength: 1, maxLength: 10, examples: [E] }
+    SeatNumber: { description: Seat number in the row., type: integer, minimum: 1, examples: [14] }
+    LocalDateTime: { description: Local time of the venue., type: string, pattern: '^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}$', examples: ["2026-12-05T20:00:00"] }
+    Instant: { description: Instant with offset., type: string, format: date-time, examples: ["2026-11-04T18:00:00Z"] }
+    Amount: { description: Decimal amount., type: string, pattern: '^\d+\.\d{2}$', examples: ["45.00"] }
+    Currency: { description: ISO 4217 code., type: string, pattern: '^[A-Z]{3}$', examples: [EUR] }
+    Cursor: { description: Opaque page cursor., type: string, examples: [eyJpZCI6IjQ3MTEifQ] }
+    NextCursor: { description: Cursor of the next page; null on the last., type: [string, "null"], examples: [null] }
+    PageLimit: { description: Page size., type: integer, minimum: 1, default: 20, examples: [20] }
+
+    Money:
+      description: Amount of money.
+      type: object
+      additionalProperties: false
+      required: [amount, currency]
+      properties:
+        amount: { $ref: "#/components/schemas/Amount" }
+        currency: { $ref: "#/components/schemas/Currency" }
+
+    # Inputs
+    VenueInput:
+      description: New venue.
+      type: object
+      additionalProperties: false
+      required: [name, city, timeZone, sectors]
+      properties:
+        name: { $ref: "#/components/schemas/VenueName" }
+        city: { $ref: "#/components/schemas/City" }
+        timeZone: { $ref: "#/components/schemas/TimeZone" }
+        sectors: { $ref: "#/components/schemas/SectorInputList" }
+    VenuePatch:
+      description: Venue changes.
+      type: object
+      additionalProperties: false
+      minProperties: 1
+      properties:
+        name: { $ref: "#/components/schemas/VenueName" }
+        city: { $ref: "#/components/schemas/City" }
+        timeZone: { $ref: "#/components/schemas/TimeZone" }
+        sectors: { $ref: "#/components/schemas/SectorInputList" }
+    SectorInputList:
+      description: Seating plan.
+      type: array
+      minItems: 1
+      items: { $ref: "#/components/schemas/SectorInput" }
+    SectorInput:
+      description: New sector.
+      type: object
+      additionalProperties: false
+      required: [name, seats]
+      properties:
+        name: { $ref: "#/components/schemas/SectorName" }
+        seats:
+          description: Seats of the sector.
+          type: array
+          minItems: 1
+          items: { $ref: "#/components/schemas/SeatInput" }
+    SeatInput:
+      description: New seat.
+      type: object
+      additionalProperties: false
+      required: [row, number]
+      properties:
+        row: { $ref: "#/components/schemas/Row" }
+        number: { $ref: "#/components/schemas/SeatNumber" }
+
+    EventInput:
+      description: New event.
+      type: object
+      additionalProperties: false
+      required: [name, venueId, currency, saleStart]
+      properties:
+        name: { $ref: "#/components/schemas/EventName" }
+        venueId: { $ref: "#/components/schemas/VenueId" }
+        currency: { $ref: "#/components/schemas/Currency" }
+        saleStart: { $ref: "#/components/schemas/LocalDateTime" }
+    EventPatch:
+      description: Event changes.
+      type: object
+      additionalProperties: false
+      minProperties: 1
+      properties:
+        name: { $ref: "#/components/schemas/EventName" }
+        venueId: { $ref: "#/components/schemas/VenueId" }
+        currency: { $ref: "#/components/schemas/Currency" }
+        saleStart: { $ref: "#/components/schemas/LocalDateTime" }
+
+    SessionInput:
+      description: New session.
+      type: object
+      additionalProperties: false
+      required: [startsAt, endsAt, saleEnd, priceTiers]
+      properties:
+        startsAt: { $ref: "#/components/schemas/LocalDateTime" }
+        endsAt: { $ref: "#/components/schemas/LocalDateTime" }
+        saleEnd: { $ref: "#/components/schemas/LocalDateTime" }
+        priceTiers: { $ref: "#/components/schemas/PriceTierInputList" }
+    SessionPatch:
+      description: Session changes.
+      type: object
+      additionalProperties: false
+      minProperties: 1
+      properties:
+        startsAt: { $ref: "#/components/schemas/LocalDateTime" }
+        endsAt: { $ref: "#/components/schemas/LocalDateTime" }
+        saleEnd: { $ref: "#/components/schemas/LocalDateTime" }
+        priceTiers: { $ref: "#/components/schemas/PriceTierInputList" }
+    PriceTierInputList:
+      description: Price tiers of the session.
+      type: array
+      minItems: 1
+      items: { $ref: "#/components/schemas/PriceTierInput" }
+    PriceTierInput:
+      description: New price tier.
+      type: object
+      additionalProperties: false
+      required: [name, price, seatIds]
+      properties:
+        name: { $ref: "#/components/schemas/PriceTierName" }
+        price: { $ref: "#/components/schemas/Money" }
+        seatIds: { $ref: "#/components/schemas/SeatIdList" }
+    PriceTierPatch:
+      description: Price tier changes.
+      type: object
+      additionalProperties: false
+      minProperties: 1
+      properties:
+        name: { $ref: "#/components/schemas/PriceTierName" }
+        price: { $ref: "#/components/schemas/Money" }
+        seatIds: { $ref: "#/components/schemas/SeatIdList" }
+    SeatIdList:
+      description: Seats of the price tier.
+      type: array
+      minItems: 1
+      uniqueItems: true
+      items: { $ref: "#/components/schemas/SeatId" }
+
+    # Outputs
+    VenueSummary:
+      description: Venue without seating plan.
+      type: object
+      required: [id, name, city, timeZone]
+      properties:
+        id: { $ref: "#/components/schemas/VenueId" }
+        name: { $ref: "#/components/schemas/VenueName" }
+        city: { $ref: "#/components/schemas/City" }
+        timeZone: { $ref: "#/components/schemas/TimeZone" }
+    Venue:
+      description: Venue with seating plan.
+      type: object
+      required: [id, name, city, timeZone, sectors]
+      properties:
+        id: { $ref: "#/components/schemas/VenueId" }
+        name: { $ref: "#/components/schemas/VenueName" }
+        city: { $ref: "#/components/schemas/City" }
+        timeZone: { $ref: "#/components/schemas/TimeZone" }
+        sectors:
+          description: Seating plan.
+          type: array
+          items: { $ref: "#/components/schemas/Sector" }
+    Sector:
+      description: Sector.
+      type: object
+      required: [id, name, seats]
+      properties:
+        id: { $ref: "#/components/schemas/SectorId" }
+        name: { $ref: "#/components/schemas/SectorName" }
+        seats:
+          description: Seats of the sector.
+          type: array
+          items: { $ref: "#/components/schemas/Seat" }
+    Seat:
+      description: Seat.
+      type: object
+      required: [id, row, number]
+      properties:
+        id: { $ref: "#/components/schemas/SeatId" }
+        row: { $ref: "#/components/schemas/Row" }
+        number: { $ref: "#/components/schemas/SeatNumber" }
+
+    EventSummary:
+      description: Event without sessions.
+      type: object
+      required: [id, name, venue, currency, saleStart]
+      properties:
+        id: { $ref: "#/components/schemas/EventId" }
+        name: { $ref: "#/components/schemas/EventName" }
+        venue: { $ref: "#/components/schemas/VenueSummary" }
+        currency: { $ref: "#/components/schemas/Currency" }
+        saleStart: { $ref: "#/components/schemas/LocalDateTime" }
+        publishedAt: { $ref: "#/components/schemas/Instant" }
+    Event:
+      description: Event with sessions; publishedAt absent while draft.
+      type: object
+      required: [id, name, venue, currency, saleStart, sessions]
+      properties:
+        id: { $ref: "#/components/schemas/EventId" }
+        name: { $ref: "#/components/schemas/EventName" }
+        venue: { $ref: "#/components/schemas/VenueSummary" }
+        currency: { $ref: "#/components/schemas/Currency" }
+        saleStart: { $ref: "#/components/schemas/LocalDateTime" }
+        publishedAt: { $ref: "#/components/schemas/Instant" }
+        sessions:
+          description: Sessions of the event.
+          type: array
+          items: { $ref: "#/components/schemas/SessionSummary" }
+    Publication:
+      description: Event publication.
+      type: object
+      required: [eventId, publishedAt]
+      properties:
+        eventId: { $ref: "#/components/schemas/EventId" }
+        publishedAt: { $ref: "#/components/schemas/Instant" }
+
+    SessionSummary:
+      description: Session without price tiers.
+      type: object
+      required: [id, startsAt, endsAt, saleEnd]
+      properties:
+        id: { $ref: "#/components/schemas/SessionId" }
+        startsAt: { $ref: "#/components/schemas/LocalDateTime" }
+        endsAt: { $ref: "#/components/schemas/LocalDateTime" }
+        saleEnd: { $ref: "#/components/schemas/LocalDateTime" }
+    Session:
+      description: Session with price tiers.
+      type: object
+      required: [id, eventId, timeZone, startsAt, endsAt, saleEnd, priceTiers]
+      properties:
+        id: { $ref: "#/components/schemas/SessionId" }
+        eventId: { $ref: "#/components/schemas/EventId" }
+        timeZone: { $ref: "#/components/schemas/TimeZone" }
+        startsAt: { $ref: "#/components/schemas/LocalDateTime" }
+        endsAt: { $ref: "#/components/schemas/LocalDateTime" }
+        saleEnd: { $ref: "#/components/schemas/LocalDateTime" }
+        priceTiers:
+          description: Price tiers of the session.
+          type: array
+          items: { $ref: "#/components/schemas/PriceTier" }
+    PriceTier:
+      description: Price tier.
+      type: object
+      required: [id, name, price, seatIds]
+      properties:
+        id: { $ref: "#/components/schemas/PriceTierId" }
+        name: { $ref: "#/components/schemas/PriceTierName" }
+        price: { $ref: "#/components/schemas/Money" }
+        seatIds: { $ref: "#/components/schemas/SeatIdList" }
+
+    VenuePage:
+      description: Page of venues.
+      type: object
+      required: [items, nextCursor, limit]
+      properties:
+        items:
+          description: Venues.
+          type: array
+          items: { $ref: "#/components/schemas/VenueSummary" }
+        nextCursor: { $ref: "#/components/schemas/NextCursor" }
+        limit: { $ref: "#/components/schemas/PageLimit" }
+    EventPage:
+      description: Page of events.
+      type: object
+      required: [items, nextCursor, limit]
+      properties:
+        items:
+          description: Events.
+          type: array
+          items: { $ref: "#/components/schemas/EventSummary" }
+        nextCursor: { $ref: "#/components/schemas/NextCursor" }
+        limit: { $ref: "#/components/schemas/PageLimit" }
+
+    # Errors
+    Problem:
+      description: RFC 9457 problem.
+      type: object
+      required: [type, title, status, code]
+      properties:
+        type: { description: Error class URI., type: string, format: uri, examples: ["https://ticketing.example/problems/not-found"] }
+        title: { description: Error class title., type: string, examples: [Not found] }
+        status: { description: HTTP status., type: integer, examples: [404] }
+        detail: { description: Explanation., type: string, examples: [Event 4711 does not exist.] }
+        instance: { description: Request path., type: string, examples: [/api/v1/events/4711] }
+        code: { description: Stable error code., type: string, examples: [not_found] }

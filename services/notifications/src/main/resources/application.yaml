@@ -1,0 +1,23 @@
+server:
+  port: ${PORT:3005}
+
+spring:
+  application:
+    name: notifications
+  threads:
+    virtual:
+      enabled: true                        # L07: MVC on virtual threads
+  jackson:
+    deserialization:
+      fail-on-unknown-properties: true     # L12: strict requests
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info
+  endpoint:
+    health:
+      probes:
+        enabled: true                      # L06: liveness and readiness
+      show-details: never
