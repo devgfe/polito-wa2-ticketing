@@ -1,0 +1,36 @@
+server:
+  port: ${PORT:3002}
+
+spring:
+  application:
+    name: inventory-orders
+  threads:
+    virtual:
+      enabled: true                        # L07: MVC on virtual threads
+  jackson:
+    deserialization:
+      fail-on-unknown-properties: true     # L12: strict requests
+  datasource:
+    url: jdbc:postgresql://localhost:5433/inventory_orders
+    username: inventory_orders                          # development values only
+    password: inventory_orders
+    hikari:
+      maximum-pool-size: 10                # L17: sized on the database
+  jpa:
+    open-in-view: false                    # L17
+    hibernate:
+      ddl-auto: validate                   # L20: Flyway owns the schema
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info
+  endpoint:
+    health:
+      probes:
+        enabled: true                      # L06: liveness and readiness
+      show-details: never
+
+payments:
+  base-url: ${PAYMENTS_URL:http://localhost:3003}

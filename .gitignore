@@ -4,6 +4,7 @@
 build/
 out/
 *.class
+!**/gradle/wrapper/gradle-wrapper.jar
 
 # Rust
 target/
