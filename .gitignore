@@ -1,18 +1,3 @@
-# Kotlin / Gradle
-.gradle/
-.kotlin/
-build/
-out/
-*.class
-!**/gradle/wrapper/gradle-wrapper.jar
-
-# Rust
-target/
-
-# Node (client)
-node_modules/
-dist/
-
 # Environment (keep the example)
 .env
 .env.*
