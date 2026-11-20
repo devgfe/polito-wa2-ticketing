@@ -1,65 +1,74 @@
 # ADR-0007: Package layout
 
 ## Context
-Every service needs the same internal structure, so that any team member can find a class without knowing who wrote it, and so that the rules on dependencies can be checked automatically.
-
-The course gives two indications that must be combined:
-
-- package by feature (`holds/`, `orders/`, `catalog/`) is the course standard, while package by layer is the weaker choice, since every change to a feature touches distant packages;
-- ports and adapters: the domain owns the interfaces it needs (ports), technology-specific implementations (adapters) live outside it, and dependencies point inwards.
+Every service needs the same internal structure, so that anyone can find a class without knowing who wrote it, and so that the dependency rules can be checked automatically.
 
 ## Decision
-Each service is organised **by feature at the top level**, and **by ports and adapters inside each feature**:
+Each service is organised **by feature**, with **one sub-package (Kotlin) or module (Rust) per layer** inside each feature:
 
-- `web`: controllers (Kotlin) or handlers (Rust) and their DTOs. It depends on `domain`.
-- `domain`: the service, the domain types and the ports, i.e. the interfaces of what the domain needs (repositories, publishers, clients of other services). It depends on nothing else in the service, and imports neither web nor persistence libraries.
-- `database`: the adapters that implement the persistence ports (JPA in Kotlin, sqlx in Rust). It depends on `domain`.
+- `handler`: HTTP entry points and DTOs. Depends on `service` and `domain`.
+- `service`: use cases and ports (the interfaces the service needs). Depends on `domain`.
+- `domain`: domain types. Depends on nothing.
+- `store`: adapters that implement the ports with the database. Depends on `service` and `domain`.
 
-Configuration (`config/`) and the error mapping (`errors/`) stay at the root of the service, next to the main class.
+Configuration, error mapping and types shared by several features stay at the root of the service.
 
-The diagram shows a Kotlin feature; in Rust the service is a plain struct, and only the ports are traits.
+The `orders` feature is used below as an example; every feature follows the same scheme.
 
-```mermaid
-classDiagram
-    namespace web {
-        class OrderController
-    }
-    namespace domain {
-        class OrderService {
-            <<interface>>
-        }
-        class OrderServiceImpl
-        class OrderRepository {
-            <<interface>>
-        }
-    }
-    namespace database {
-        class OrderRepositoryAdapter
-    }
-    OrderController ..> OrderService : use
-    OrderService <|.. OrderServiceImpl
-    OrderServiceImpl ..> OrderRepository : use
-    OrderRepository <|.. OrderRepositoryAdapter
-```
+### Kotlin
 
-Example Kotlin:
+| Sub-package | Classes |
+|---|---|
+| `handler` | `OrderController`, and `OrderDtos.kt` with the request and response DTOs |
+| `service` | `OrderService`, the port `OrderRepository` (one file per port) |
+| `domain` | `Order` |
+| `store` | `OrderRepositoryAdapter` (implements the port, maps `OrderEntity` to `Order`), `OrderJpaRepository`, `OrderEntity` |
 
 ```
 it/polito/wa2/inventoryorders/
 ├── InventoryOrdersApplication.kt
 ├── config/
 ├── errors/
-├── orders/
-│   ├── web/        OrderController, DTOs
-│   ├── domain/     OrderService, OrderServiceImpl, Order, OrderRepository (port)
-│   └── database/   OrderRepositoryAdapter, OrderJpaRepository, OrderEntity
-└── holds/
-    ├── web/
-    ├── domain/
-    └── database/
+├── common/
+└── orders/
+    ├── handler/   OrderController.kt, OrderDtos.kt
+    ├── service/   OrderService.kt, OrderRepository.kt
+    ├── domain/    Order.kt
+    └── store/     OrderRepositoryAdapter.kt, OrderJpaRepository.kt, OrderEntity.kt
 ```
 
-Example Rust:
+```mermaid
+classDiagram
+    namespace handler {
+        class OrderController
+    }
+    namespace service {
+        class OrderService
+        class OrderRepository {
+            <<interface>>
+        }
+    }
+    namespace domain {
+        class Order
+    }
+    namespace store {
+        class OrderRepositoryAdapter
+    }
+    OrderController ..> OrderService : use
+    OrderService ..> OrderRepository : use
+    OrderService ..> Order
+    OrderRepository <|.. OrderRepositoryAdapter
+    OrderRepositoryAdapter ..> Order : maps to
+```
+
+### Rust
+
+| Module | Contains |
+|---|---|
+| `handler.rs` | handlers and DTOs |
+| `service.rs` | `OrderService` (struct), `trait OrderRepository` |
+| `domain.rs` | `Order` |
+| `store.rs` | `PgOrderRepository` (implements the port with sqlx), `OrderRow` |
 
 ```
 src/
@@ -68,18 +77,42 @@ src/
 ├── error.rs
 └── orders/
     ├── mod.rs
-    ├── web.rs        handlers and DTOs
-    ├── domain.rs     OrderService, Order, trait OrderRepository (port)
-    └── database.rs   PgOrderRepository (adapter), OrderRow
+    ├── handler.rs
+    ├── service.rs
+    ├── domain.rs
+    └── store.rs
+```
+
+```mermaid
+classDiagram
+    namespace handler {
+        class handlers
+    }
+    namespace service {
+        class OrderService
+        class OrderRepository {
+            <<trait>>
+        }
+    }
+    namespace domain {
+        class Order
+    }
+    namespace store {
+        class PgOrderRepository
+    }
+    handlers ..> OrderService : use
+    OrderService ..> OrderRepository : use
+    OrderService ..> Order
+    OrderRepository <|.. PgOrderRepository
+    PgOrderRepository ..> Order : maps to
 ```
 
 ## Rejected
-- **Package by layer for the whole service** (`web/`, `domain/`, `database/` at the top). Every change to a feature would touch three distant packages.
-- **One flat package per feature**. It works, but the layer of each class would be visible only from its name, and in Kotlin the ArchUnit rules would have to rely on naming conventions being respected.
+- **By layer for the whole service**: every change to a feature touches distant packages.
+- **One flat package per feature**: in Kotlin the layer of a class would be visible only from its name, and rules could not be checked per package; in Rust it would mean a single file per feature, with no module boundary between layers.
+- **An interface for every service**: a service has one implementation; only ports, which also have a test fake, are interfaces.
 
 ## Consequences
-- `+` A feature lives in one directory, and its persistence can be replaced or faked in tests without touching the domain.
-- `+` The direction of dependencies is the same in every service and in both stacks.
-- `-` In Kotlin, `internal` hides a class from other Gradle modules, not from other packages of the same module, so in a single-module service it does not enforce these rules. They are checked by ArchUnit tests instead.
-- `-` More directories for small features.
-- `-` In Rust, module privacy is enforced by the compiler, so what is not `pub` in `database` is invisible to `web`; the items needed for the wiring in `AppState` must stay visible inside the crate, and for them the rules are checked in review.
+- `+` All the code of a feature lives in one directory, and the layer of each class is visible from its path (`orders/store/...`). Since the service depends only on the port, the store can be replaced by an in-memory fake in the service tests, without a database.
+- `-` In Kotlin, `internal` makes a class visible to the whole Gradle module, i.e. the whole service, so it cannot stop a handler from using a store class. The dependency rules are checked by ArchUnit tests instead, which fail the build when, for example, a class in `..handler..` depends on one in `..store..`.
+- `-` In Rust, what is not `pub` in a module is invisible to the others, so the compiler enforces most rules. The exception is what `main.rs` needs to build the `AppState` (e.g. `PgOrderRepository`): it must be visible in the whole crate, so a handler could use it too, and this case is checked in review.
