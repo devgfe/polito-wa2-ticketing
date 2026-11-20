@@ -24,6 +24,10 @@ jobs:
         with:
           distribution: temurin
           java-version: "21"
+          cache: gradle
+          cache-dependency-path: |
+            services/${{ matrix.service }}/*.gradle.kts
+            services/${{ matrix.service }}/gradle/wrapper/gradle-wrapper.properties
 
       - name: Build and test
         run: |
