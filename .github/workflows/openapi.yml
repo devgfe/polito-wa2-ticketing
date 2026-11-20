@@ -1,0 +1,33 @@
+name: OpenAPI
+
+on:
+  pull_request:
+
+jobs:
+  breaking-changes:
+    name: openapi ${{ matrix.service }}
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        service: [catalogue, inventory-orders, payments, ticketing]
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0               # needed to read the target branch
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version: stable
+
+      - name: Install oasdiff
+        run: go install github.com/oasdiff/oasdiff@latest
+
+      - name: Compare with the target branch
+        run: |
+          doc="services/${{ matrix.service }}/openapi.yaml"
+          if ! git show "origin/${{ github.base_ref }}:$doc" > /tmp/base.yaml 2>/dev/null; then
+            echo "New document, nothing to compare"; exit 0
+          fi
+          ~/go/bin/oasdiff changelog /tmp/base.yaml "$doc"
+          ~/go/bin/oasdiff breaking  /tmp/base.yaml "$doc" --fail-on ERR

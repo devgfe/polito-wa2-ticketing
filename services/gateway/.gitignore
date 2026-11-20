@@ -1,0 +1,8 @@
+# Kotlin / Gradle
+.gradle/
+.kotlin/
+build/
+bin/
+out/
+*.class
+!**/gradle/wrapper/gradle-wrapper.jar
