@@ -4,14 +4,16 @@
 Every service needs the same internal structure, so that anyone can find a class without knowing who wrote it, and so that the dependency rules can be checked automatically.
 
 ## Decision
-Each service is organised **by feature**, with **one sub-package (Kotlin) or module (Rust) per layer** inside each feature:
+We adopt a **ports and adapters** structure, split first **by feature** and then **by layer** inside each feature. Each feature contains four layers:
 
-- `handler`: HTTP entry points and DTOs. Depends on `service` and `domain`.
-- `service`: use cases and ports (the interfaces the service needs). Depends on `domain`.
-- `domain`: domain types. Depends on nothing.
-- `store`: adapters that implement the ports with the database. Depends on `service` and `domain`.
+- `domain`: the domain types. It depends on nothing.
+- `service`: the use cases, and the ports, i.e. the interfaces of what the service needs from the outside. It depends on `domain`.
+- `handler`: the HTTP entry points and their DTOs, which call the service. It depends on `service` and `domain`.
+- `store`: the adapters that implement the ports with the database. It depends on `service` and `domain`.
 
-Configuration, error mapping and types shared by several features stay at the root of the service.
+`domain` and `service` are the core of the feature; `handler` and `store` are around it, and depend on it, never the opposite. Every dependency therefore points towards the core.
+
+Configuration and error mapping shared by several features stay at the root of the service.
 
 The `orders` feature is used below as an example; every feature follows the same scheme.
 
@@ -69,6 +71,8 @@ classDiagram
 | `service.rs` | `OrderService` (struct), `trait OrderRepository` |
 | `domain.rs` | `Order` |
 | `store.rs` | `PgOrderRepository` (implements the port with sqlx), `OrderRow` |
+
+Each box is a module, i.e. one file of `orders/` (`handler.rs`, `service.rs`, …), not a separate directory.
 
 ```
 src/

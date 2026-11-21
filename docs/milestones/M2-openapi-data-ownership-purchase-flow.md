@@ -13,15 +13,18 @@
 
 ## 2. Data ownership
 
-Each service owns its schema; no other service reads or writes it. Copies are read-only and are updated only by broker messages.
+Each service owns its schema; no other service reads or writes it. Copies are read-only and are updated only by broker messages, except the payment link, saved from the response of `createPayment`.
 
 | Data | Owner | Read-only copies | Copies updated by |
 |---|---|---|---|
 | Venues, sectors, seats | Catalogue | Inventory & orders, Ticketing | venue created, venue updated, venue deleted |
-| Events, sessions, price tiers | Catalogue | Inventory & orders, Ticketing | event published, event updated, session created, session updated, price tier updated |
+| Events, sessions | Catalogue | Inventory & orders, Ticketing | event published, event updated, session created, session updated, session deleted |
+| Seats of each session | Catalogue | Inventory & orders, Ticketing | session created, session updated, session deleted, price tier updated |
+| Price tiers | Catalogue | Inventory & orders | session created, session updated, session deleted, price tier updated |
 | Seat states | Inventory & orders | none | |
-| Orders | Inventory & orders | Ticketing | order paid, order cancelled |
+| Orders, with their seats, holders and prices | Inventory & orders | Ticketing | order paid, order cancelled |
 | Payments and refunds | Payments | none | |
+| Payment link | Payments | Inventory & orders | `createPayment` response |
 | Tickets, scans, PDFs | Ticketing | none | |
 | Users and roles | Keycloak | none (services store only user ids) | |
 
@@ -32,7 +35,7 @@ Notifications has no schema.
 | Message | Producer | Consumers |
 |---|---|---|
 | venue created, venue updated, venue deleted | Catalogue | Inventory & orders, Ticketing |
-| event published, event updated, session created, session updated, price tier updated | Catalogue | Inventory & orders, Ticketing |
+| event published, event updated, session created, session updated, session deleted, price tier updated | Catalogue | Inventory & orders, Ticketing |
 | payment captured, payment failed | Payments | Inventory & orders |
 | order paid | Inventory & orders | Ticketing |
 | order cancelled | Inventory & orders | Payments, Ticketing, Notifications |

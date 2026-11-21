@@ -695,4 +695,21 @@ components:
         status: { description: HTTP status., type: integer, examples: [404] }
         detail: { description: Explanation., type: string, examples: [Event 4711 does not exist.] }
         instance: { description: Request path., type: string, examples: [/api/v1/events/4711] }
-        code: { description: Stable error code., type: string, examples: [not_found] }
+        code:
+          description: "Stable error code (open enum)."
+          type: string
+          enum: [malformed_request, validation_failed, unauthorized, forbidden, not_found, venue_in_use, event_published, event_not_publishable, sales_open, unknown_venue, unknown_seat]
+          examples: [seat_taken]
+        errors: { description: "Only when code is validation_failed.", type: array, items: { $ref: "#/components/schemas/FieldError" } }
+
+    FieldError:
+      description: Invalid field.
+      type: object
+      required: [field, code, detail]
+      properties:
+        field: { description: "Path of the field.", type: string, examples: ["items[0].holder.firstName"] }
+        code:
+          description: "Stable violation code (open enum)."
+          type: string
+          enum: [required, invalid_format, too_short, too_long, out_of_range, too_few_items, too_many_items, not_unique]
+        detail: { description: "Explanation.", type: string, examples: [must be at most 100 characters] }
