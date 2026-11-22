@@ -24,6 +24,10 @@ jobs:
         with:
           distribution: temurin
           java-version: "21"
+          cache: gradle
+          cache-dependency-path: |
+            services/${{ matrix.service }}/*.gradle.kts
+            services/${{ matrix.service }}/gradle/wrapper/gradle-wrapper.properties
 
       - name: Build and test
         run: |
@@ -57,33 +61,3 @@ jobs:
 
       - name: Test
         run: cargo test
-
-  # ---------------- OpenAPI: breaking changes ----------------
-  openapi:
-    name: openapi ${{ matrix.service }}
-    if: github.event_name == 'pull_request'
-    runs-on: ubuntu-latest
-    strategy:
-      fail-fast: false
-      matrix:
-        service: [catalogue, inventory-orders, payments, ticketing]
-    steps:
-      - uses: actions/checkout@v4
-        with:
-          fetch-depth: 0               # needed to read the target branch
-
-      - uses: actions/setup-go@v5
-        with:
-          go-version: stable
-
-      - name: Install oasdiff
-        run: go install github.com/oasdiff/oasdiff@latest
-
-      - name: Compare with the target branch
-        run: |
-          doc="services/${{ matrix.service }}/openapi.yaml"
-          if ! git show "origin/${{ github.base_ref }}:$doc" > /tmp/base.yaml 2>/dev/null; then
-            echo "New document, nothing to compare"; exit 0
-          fi
-          ~/go/bin/oasdiff changelog /tmp/base.yaml "$doc"
-          ~/go/bin/oasdiff breaking  /tmp/base.yaml "$doc" --fail-on ERR

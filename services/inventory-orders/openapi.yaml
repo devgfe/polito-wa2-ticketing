@@ -99,7 +99,7 @@ paths:
         "401": { $ref: "#/components/responses/Unauthorized" }
         "403": { $ref: "#/components/responses/Forbidden" }
         "409": { $ref: "#/components/responses/Conflict" }
-        "422": { $ref: "#/components/responses/Unprocessable" }
+        "422": { $ref: "#/components/responses/Unprocessable", description: "Invalid field (code validation_failed), items of different sessions (code mixed_sessions), or Idempotency-Key reused with a different request (code idempotency_key_reused)." }
         "429": { $ref: "#/components/responses/TooManyRequests" }
         "503": { $ref: "#/components/responses/Unavailable" }
     get:
@@ -332,7 +332,7 @@ components:
     EventId: { description: Event identifier., type: string, examples: ["4711"] }
     SessionId: { description: Session identifier., type: string, examples: ["1"] }
     SectorId: { description: Sector identifier., type: string, examples: ["1"] }
-    SessionSeatId: { description: Seat of a session (venue, event, session, sector, row, number)., type: string, examples: ["3-4711-1-1-E-14"] }
+    SessionSeatId: { description: "Seat of a session (venue, event, session, sector, row, number).", type: string, examples: ["3-4711-1-1-E-14"] }
     PriceTierId: { description: Price tier identifier., type: string, examples: ["2"] }
     OrderId: { description: Order identifier., type: string, examples: ["70412"] }
     Row: { description: Seat row., type: string, minLength: 1, maxLength: 10, examples: [E] }
@@ -593,4 +593,21 @@ components:
         status: { description: HTTP status., type: integer, examples: [409] }
         detail: { description: Explanation., type: string, examples: [Seat E14 is held by another customer.] }
         instance: { description: Request path., type: string, examples: [/api/v1/holds/3-4711-1-1-E-14] }
-        code: { description: Stable error code., type: string, examples: [seat_taken] }
+        code:
+          description: "Stable error code (open enum)."
+          type: string
+          enum: [malformed_request, validation_failed, mixed_sessions, idempotency_key_reused, unauthorized, forbidden, not_found, seat_taken, seat_not_held, hold_limit_reached, sales_closed, order_not_cancellable, rate_limited, payments_unavailable]
+          examples: [seat_taken]
+        errors: { description: "Only when code is validation_failed.", type: array, items: { $ref: "#/components/schemas/FieldError" } }
+
+    FieldError:
+      description: Invalid field.
+      type: object
+      required: [field, code, detail]
+      properties:
+        field: { description: "Path of the field.", type: string, examples: ["items[0].holder.firstName"] }
+        code:
+          description: "Stable violation code (open enum)."
+          type: string
+          enum: [required, invalid_format, too_short, too_long, out_of_range, too_few_items, too_many_items, not_unique]
+        detail: { description: "Explanation.", type: string, examples: [must be at most 100 characters] }

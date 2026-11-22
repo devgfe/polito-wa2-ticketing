@@ -6,10 +6,33 @@ spring:
     name: gateway
   threads:
     virtual:
-      enabled: true                        # L07: MVC on virtual threads
+      enabled: true
   jackson:
     deserialization:
-      fail-on-unknown-properties: true     # L12: strict requests
+      fail-on-unknown-properties: true
+  cloud:
+    gateway:
+      server:
+        webmvc:
+          routes:
+            # inventory-orders BEFORE catalogue: some of its paths are under /events
+            - id: inventory-orders
+              uri: ${INVENTORY_ORDERS_URL:http://localhost:3002}
+              predicates:
+                - Path=/api/v1/holds/**,/api/v1/orders/**,/api/v1/events/*/sales,/api/v1/events/*/sessions/*/seats,/api/v1/events/*/sessions/*/seat-stream
+            - id: catalogue
+              uri: ${CATALOGUE_URL:http://localhost:3001}
+              predicates:
+                - Path=/api/v1/venues/**,/api/v1/events/**
+            - id: ticketing
+              uri: ${TICKETING_URL:http://localhost:3004}
+              predicates:
+                - Path=/api/v1/tickets/**
+            # payments: only the PayPal webhook is public (ADR-0005)
+            - id: payments-webhook
+              uri: ${PAYMENTS_URL:http://localhost:3003}
+              predicates:
+                - Path=/api/v1/paypal/webhooks
 
 management:
   endpoints:
@@ -19,11 +42,5 @@ management:
   endpoint:
     health:
       probes:
-        enabled: true                      # L06: liveness and readiness
+        enabled: true
       show-details: never
-
-routes:
-  catalogue-url: ${CATALOGUE_URL:http://localhost:3001}
-  inventory-orders-url: ${INVENTORY_ORDERS_URL:http://localhost:3002}
-  payments-url: ${PAYMENTS_URL:http://localhost:3003}
-  ticketing-url: ${TICKETING_URL:http://localhost:3004}

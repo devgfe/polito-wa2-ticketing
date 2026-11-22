@@ -3,7 +3,7 @@ info:
   title: Payments API
   version: 0.1.0
 servers:
-  - url: http://payments:8080
+  - url: http://payments:8080/api/v1
     description: Internal network, not exposed.
 security:
   - bearerAuth: []
@@ -239,7 +239,7 @@ components:
       properties:
         id: { description: PayPal event id., type: string, examples: [WH-2WR32451HC0233532-67976317FL4543714] }
         event_type: { description: PayPal event type., type: string, examples: [CHECKOUT.ORDER.APPROVED] }
-        resource: { description: PayPal order, capture or refund., type: object, examples: [{ id: 5O190127TN364715T, status: APPROVED }] }
+        resource: { description: "PayPal order, capture or refund.", type: object, examples: [{ id: 5O190127TN364715T, status: APPROVED }] }
 
     # Outputs
     PspOperationBase:
@@ -305,6 +305,23 @@ components:
         title: { description: Error class title., type: string, examples: [Amount mismatch] }
         status: { description: HTTP status., type: integer, examples: [422] }
         detail: { description: Explanation., type: string, examples: [Order 70412 already has a payment of 90.00 EUR.] }
-        instance: { description: Request path., type: string, examples: [/payments] }
-        code: { description: Stable error code., type: string, examples: [amount_mismatch] }
+        instance: { description: Request path., type: string, examples: [/api/v1/payments] }
+        code:
+          description: "Stable error code (open enum)."
+          type: string
+          enum: [malformed_request, validation_failed, unauthorized, invalid_signature, forbidden, not_found, amount_mismatch, paypal_unavailable]
+          examples: [seat_taken]
+        errors: { description: "Only when code is validation_failed.", type: array, items: { $ref: "#/components/schemas/FieldError" } }
+
+    FieldError:
+      description: Invalid field.
+      type: object
+      required: [field, code, detail]
+      properties:
+        field: { description: "Path of the field.", type: string, examples: ["items[0].holder.firstName"] }
+        code:
+          description: "Stable violation code (open enum)."
+          type: string
+          enum: [required, invalid_format, too_short, too_long, out_of_range, too_few_items, too_many_items, not_unique]
+        detail: { description: "Explanation.", type: string, examples: [must be at most 100 characters] }
         
