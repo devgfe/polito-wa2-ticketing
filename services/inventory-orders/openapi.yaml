@@ -1,7 +1,7 @@
 openapi: 3.1.0
 info:
   title: Inventory & Orders API
-  version: 0.2.0
+  version: 0.3.0
 servers:
   - url: http://localhost:8080/api/v1
     description: API gateway.
@@ -92,7 +92,6 @@ paths:
         "403": { $ref: "#/components/responses/Forbidden" }
         "404": { $ref: "#/components/responses/NotFound" }
         "412": { $ref: "#/components/responses/PreconditionFailed" }
-        "428": { $ref: "#/components/responses/PreconditionRequired" }
 
   /holds:
     get:
@@ -359,11 +358,6 @@ components:
           schema: { $ref: "#/components/schemas/Problem" }
     PreconditionFailed:
       description: The seat is held with another token.
-      content:
-        application/problem+json:
-          schema: { $ref: "#/components/schemas/Problem" }
-    PreconditionRequired:
-      description: If-Match missing.
       content:
         application/problem+json:
           schema: { $ref: "#/components/schemas/Problem" }
@@ -654,7 +648,7 @@ components:
     Problem:
       description: RFC 9457 problem.
       type: object
-      required: [type, title, status, code]
+      required: [type, title, status, detail, code]
       properties:
         type: { description: Error class URI., type: string, format: uri, examples: ["https://ticketing.example/problems/seat-taken"] }
         title: { description: Error class title., type: string, examples: [Seat taken] }
@@ -664,7 +658,7 @@ components:
         code:
           description: "Stable error code (open enum)."
           type: string
-          enum: [malformed_request, validation_failed, idempotency_key_reused, unauthorized, forbidden, not_found, seat_taken, seat_not_held, hold_changed, hold_token_required, hold_limit_reached, sales_closed, order_not_cancellable, rate_limited, payments_unavailable]
+          enum: [malformed_request, validation_failed, idempotency_key_reused, unauthorized, forbidden, not_found, seat_taken, seat_not_held, hold_changed, hold_limit_reached, sales_closed, order_not_cancellable, rate_limited, payments_unavailable]
           examples: [seat_taken]
         errors: { description: "Only when code is validation_failed.", type: array, items: { $ref: "#/components/schemas/FieldError" } }
 
@@ -677,5 +671,5 @@ components:
         code:
           description: "Stable violation code (open enum)."
           type: string
-          enum: [required, invalid_format, too_short, too_long, out_of_range, too_few_items, too_many_items, not_unique]
+          enum: [invalid_format, invalid_size, out_of_range, not_unique]
         detail: { description: "Explanation.", type: string, examples: [must be at most 100 characters] }
