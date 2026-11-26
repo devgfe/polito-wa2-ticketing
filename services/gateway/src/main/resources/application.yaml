@@ -19,7 +19,7 @@ spring:
             - id: inventory-orders
               uri: ${INVENTORY_ORDERS_URL:http://localhost:3002}
               predicates:
-                - Path=/api/v1/holds/**,/api/v1/orders/**,/api/v1/events/*/sales,/api/v1/events/*/sessions/*/seats,/api/v1/events/*/sessions/*/seat-stream
+                - Path=/api/v1/holds/**,/api/v1/orders/**,/api/v1/events/*/sales,/api/v1/events/*/sessions/*/seats/**,/api/v1/events/*/sessions/*/seat-stream
             - id: catalogue
               uri: ${CATALOGUE_URL:http://localhost:3001}
               predicates:
