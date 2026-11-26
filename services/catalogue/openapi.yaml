@@ -403,7 +403,6 @@ components:
     # Base types
     VenueId: { description: Venue identifier., type: string, examples: ["3"] }
     SectorId: { description: Sector identifier., type: string, examples: ["1"] }
-    SeatId: { description: Seat identifier., type: string, examples: ["1-E-14"] }
     EventId: { description: Event identifier., type: string, examples: ["4711"] }
     SessionId: { description: Session identifier., type: string, examples: ["1"] }
     PriceTierId: { description: Price tier identifier., type: string, examples: ["2"] }
@@ -431,6 +430,22 @@ components:
       properties:
         amount: { $ref: "#/components/schemas/Amount" }
         currency: { $ref: "#/components/schemas/Currency" }
+
+    SeatRef:
+      description: Seat of the venue.
+      type: object
+      additionalProperties: false
+      required: [sectorId, row, number]
+      properties:
+        sectorId: { $ref: "#/components/schemas/SectorId" }
+        row: { $ref: "#/components/schemas/Row" }
+        number: { $ref: "#/components/schemas/SeatNumber" }
+    SeatRefList:
+      description: Seats of the price tier.
+      type: array
+      minItems: 1
+      uniqueItems: true
+      items: { $ref: "#/components/schemas/SeatRef" }
 
     # Inputs
     VenueInput:
@@ -529,11 +544,11 @@ components:
       description: New price tier.
       type: object
       additionalProperties: false
-      required: [name, price, seatIds]
+      required: [name, price, seats]
       properties:
         name: { $ref: "#/components/schemas/PriceTierName" }
         price: { $ref: "#/components/schemas/Money" }
-        seatIds: { $ref: "#/components/schemas/SeatIdList" }
+        seats: { $ref: "#/components/schemas/SeatRefList" }
     PriceTierPatch:
       description: Price tier changes.
       type: object
@@ -542,13 +557,7 @@ components:
       properties:
         name: { $ref: "#/components/schemas/PriceTierName" }
         price: { $ref: "#/components/schemas/Money" }
-        seatIds: { $ref: "#/components/schemas/SeatIdList" }
-    SeatIdList:
-      description: Seats of the price tier.
-      type: array
-      minItems: 1
-      uniqueItems: true
-      items: { $ref: "#/components/schemas/SeatId" }
+        seats: { $ref: "#/components/schemas/SeatRefList" }
 
     # Outputs
     VenueSummary:
@@ -587,9 +596,8 @@ components:
     Seat:
       description: Seat.
       type: object
-      required: [id, row, number]
+      required: [row, number]
       properties:
-        id: { $ref: "#/components/schemas/SeatId" }
         row: { $ref: "#/components/schemas/Row" }
         number: { $ref: "#/components/schemas/SeatNumber" }
 
@@ -622,9 +630,8 @@ components:
     Publication:
       description: Event publication.
       type: object
-      required: [eventId, publishedAt]
+      required: [publishedAt]
       properties:
-        eventId: { $ref: "#/components/schemas/EventId" }
         publishedAt: { $ref: "#/components/schemas/Instant" }
 
     SessionSummary:
@@ -639,10 +646,9 @@ components:
     Session:
       description: Session with price tiers.
       type: object
-      required: [id, eventId, timeZone, startsAt, endsAt, saleEnd, priceTiers]
+      required: [id, timeZone, startsAt, endsAt, saleEnd, priceTiers]
       properties:
         id: { $ref: "#/components/schemas/SessionId" }
-        eventId: { $ref: "#/components/schemas/EventId" }
         timeZone: { $ref: "#/components/schemas/TimeZone" }
         startsAt: { $ref: "#/components/schemas/LocalDateTime" }
         endsAt: { $ref: "#/components/schemas/LocalDateTime" }
@@ -654,12 +660,12 @@ components:
     PriceTier:
       description: Price tier.
       type: object
-      required: [id, name, price, seatIds]
+      required: [id, name, price, seats]
       properties:
         id: { $ref: "#/components/schemas/PriceTierId" }
         name: { $ref: "#/components/schemas/PriceTierName" }
         price: { $ref: "#/components/schemas/Money" }
-        seatIds: { $ref: "#/components/schemas/SeatIdList" }
+        seats: { $ref: "#/components/schemas/SeatRefList" }
 
     VenuePage:
       description: Page of venues.
@@ -699,7 +705,7 @@ components:
           description: "Stable error code (open enum)."
           type: string
           enum: [malformed_request, validation_failed, unauthorized, forbidden, not_found, venue_in_use, event_published, event_not_publishable, sales_open, unknown_venue, unknown_seat]
-          examples: [seat_taken]
+          examples: [malformed_request]
         errors: { description: "Only when code is validation_failed.", type: array, items: { $ref: "#/components/schemas/FieldError" } }
 
     FieldError:

@@ -49,7 +49,7 @@ paths:
         "404": { $ref: "#/components/responses/NotFound" }
         "409": { $ref: "#/components/responses/Conflict" }
 
-  /tickets/{ticketId}/scans:
+  /tickets/{ticketId}/scan:
     parameters:
       - $ref: "#/components/parameters/TicketId"
     post:
@@ -175,7 +175,7 @@ components:
     OrderId: { description: Order identifier., type: string, examples: ["70412"] }
     EventId: { description: Event identifier., type: string, examples: ["4711"] }
     SessionId: { description: Session identifier., type: string, examples: ["1"] }
-    SessionSeatId: { description: "Seat of a session (venue, event, session, sector, row, number).", type: string, examples: ["3-4711-1-1-E-14"] }
+    SectorId: { description: Sector identifier., type: string, examples: ["1"] }
     UserId: { description: Keycloak user identifier., type: string, examples: [b2a1c3d4-0000-4000-8000-000000000001] }
     EventName: { description: Event name., type: string, minLength: 1, maxLength: 200, examples: ["Aurora Quartet: Winter Tour"] }
     VenueName: { description: Venue name., type: string, minLength: 1, maxLength: 200, examples: [Teatro Regio] }
@@ -212,6 +212,15 @@ components:
       properties:
         firstName: { $ref: "#/components/schemas/FirstName" }
         lastName: { $ref: "#/components/schemas/LastName" }
+    SeatRef:
+      description: Seat of the venue.
+      type: object
+      additionalProperties: false
+      required: [sectorId, row, number]
+      properties:
+        sectorId: { $ref: "#/components/schemas/SectorId" }
+        row: { $ref: "#/components/schemas/Row" }
+        number: { $ref: "#/components/schemas/SeatNumber" }
 
     # Inputs
     ScanInput:
@@ -227,7 +236,7 @@ components:
     Ticket:
       description: Ticket for one seat.
       type: object
-      required: [id, orderId, status, event, session, venue, seat, holder, price]
+      required: [id, orderId, status, event, session, venue, seat, sectorName, holder, price]
       properties:
         id: { $ref: "#/components/schemas/TicketId" }
         orderId: { $ref: "#/components/schemas/OrderId" }
@@ -235,7 +244,8 @@ components:
         event: { $ref: "#/components/schemas/TicketEvent" }
         session: { $ref: "#/components/schemas/TicketSession" }
         venue: { $ref: "#/components/schemas/TicketVenue" }
-        seat: { $ref: "#/components/schemas/TicketSeat" }
+        seat: { $ref: "#/components/schemas/SeatRef" }
+        sectorName: { $ref: "#/components/schemas/SectorName" }
         holder: { $ref: "#/components/schemas/Holder" }
         price: { $ref: "#/components/schemas/Money" }
     TicketEvent:
@@ -261,15 +271,6 @@ components:
         name: { $ref: "#/components/schemas/VenueName" }
         city: { $ref: "#/components/schemas/City" }
         timeZone: { $ref: "#/components/schemas/TimeZone" }
-    TicketSeat:
-      description: Seat of the ticket.
-      type: object
-      required: [id, sectorName, row, number]
-      properties:
-        id: { $ref: "#/components/schemas/SessionSeatId" }
-        sectorName: { $ref: "#/components/schemas/SectorName" }
-        row: { $ref: "#/components/schemas/Row" }
-        number: { $ref: "#/components/schemas/SeatNumber" }
     TicketPage:
       description: Page of tickets.
       type: object
@@ -291,9 +292,8 @@ components:
     Scan:
       description: First admission of a ticket.
       type: object
-      required: [ticketId, scannedAt, gateStaffId]
+      required: [scannedAt, gateStaffId]
       properties:
-        ticketId: { $ref: "#/components/schemas/TicketId" }
         scannedAt: { $ref: "#/components/schemas/Instant" }
         gateStaffId: { $ref: "#/components/schemas/UserId" }
 
@@ -312,7 +312,7 @@ components:
           description: "Stable error code (open enum)."
           type: string
           enum: [malformed_request, validation_failed, unauthorized, forbidden, not_found, pdf_not_ready, ticket_invalidated, wrong_session]
-          examples: [seat_taken]
+          examples: [ticket_invalidated]
         errors: { description: "Only when code is validation_failed.", type: array, items: { $ref: "#/components/schemas/FieldError" } }
 
     FieldError:

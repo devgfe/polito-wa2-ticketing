@@ -310,7 +310,7 @@ components:
           description: "Stable error code (open enum)."
           type: string
           enum: [malformed_request, validation_failed, unauthorized, invalid_signature, forbidden, not_found, amount_mismatch, paypal_unavailable]
-          examples: [seat_taken]
+          examples: [amount_mismatch]
         errors: { description: "Only when code is validation_failed.", type: array, items: { $ref: "#/components/schemas/FieldError" } }
 
     FieldError:

@@ -31,7 +31,7 @@ paths:
       summary: Get the seat map
       security: []
       parameters:
-        - $ref: "#/components/parameters/IfNoneMatch"
+        - $ref: "#/components/parameters/SeatMapIfNoneMatch"
       responses:
         "200": { $ref: "#/components/responses/SeatMap" }
         "304": { $ref: "#/components/responses/NotModified" }
@@ -51,13 +51,18 @@ paths:
         "400": { $ref: "#/components/responses/BadRequest" }
         "404": { $ref: "#/components/responses/NotFound" }
 
-  /holds/{sessionSeatId}:
+  /events/{eventId}/sessions/{sessionId}/seats/{sectorId}/{row}/{number}/hold:
     parameters:
-      - $ref: "#/components/parameters/SessionSeatId"
-    put:
+      - $ref: "#/components/parameters/EventId"
+      - $ref: "#/components/parameters/SessionId"
+      - $ref: "#/components/parameters/SectorId"
+      - $ref: "#/components/parameters/Row"
+      - $ref: "#/components/parameters/SeatNumber"
+    post:
       operationId: holdSeat
       summary: Hold a seat
       responses:
+        "201": { $ref: "#/components/responses/HoldCreated" }
         "200": { $ref: "#/components/responses/Hold" }
         "400": { $ref: "#/components/responses/BadRequest" }
         "401": { $ref: "#/components/responses/Unauthorized" }
@@ -66,15 +71,28 @@ paths:
         "409": { $ref: "#/components/responses/Conflict" }
         "429": { $ref: "#/components/responses/TooManyRequests" }
         "503": { $ref: "#/components/responses/Unavailable" }
+    get:
+      operationId: getHold
+      summary: Get a held seat
+      responses:
+        "200": { $ref: "#/components/responses/Hold" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
     delete:
       operationId: releaseSeat
       summary: Release a held seat
+      parameters:
+        - $ref: "#/components/parameters/HoldIfMatch"
       responses:
         "204": { $ref: "#/components/responses/NoContent" }
         "400": { $ref: "#/components/responses/BadRequest" }
         "401": { $ref: "#/components/responses/Unauthorized" }
         "403": { $ref: "#/components/responses/Forbidden" }
         "404": { $ref: "#/components/responses/NotFound" }
+        "412": { $ref: "#/components/responses/PreconditionFailed" }
+        "428": { $ref: "#/components/responses/PreconditionRequired" }
 
   /holds:
     get:
@@ -99,7 +117,7 @@ paths:
         "401": { $ref: "#/components/responses/Unauthorized" }
         "403": { $ref: "#/components/responses/Forbidden" }
         "409": { $ref: "#/components/responses/Conflict" }
-        "422": { $ref: "#/components/responses/Unprocessable", description: "Invalid field (code validation_failed), items of different sessions (code mixed_sessions), or Idempotency-Key reused with a different request (code idempotency_key_reused)." }
+        "422": { $ref: "#/components/responses/Unprocessable", description: "Invalid field (code validation_failed) or Idempotency-Key reused with a different request (code idempotency_key_reused)." }
         "429": { $ref: "#/components/responses/TooManyRequests" }
         "503": { $ref: "#/components/responses/Unavailable" }
     get:
@@ -164,23 +182,41 @@ components:
       required: true
       description: Session of the event.
       schema: { $ref: "#/components/schemas/SessionId" }
-    SessionSeatId:
-      name: sessionSeatId
+    SectorId:
+      name: sectorId
       in: path
       required: true
-      description: Seat of a session.
-      schema: { $ref: "#/components/schemas/SessionSeatId" }
+      description: Sector of the venue.
+      schema: { $ref: "#/components/schemas/SectorId" }
+    Row:
+      name: row
+      in: path
+      required: true
+      description: Row of the sector.
+      schema: { $ref: "#/components/schemas/Row" }
+    SeatNumber:
+      name: number
+      in: path
+      required: true
+      description: Seat in the row.
+      schema: { $ref: "#/components/schemas/SeatNumber" }
     OrderId:
       name: orderId
       in: path
       required: true
       description: Order.
       schema: { $ref: "#/components/schemas/OrderId" }
-    IfNoneMatch:
+    SeatMapIfNoneMatch:
       name: If-None-Match
       in: header
       description: ETag of a previous answer.
-      schema: { $ref: "#/components/schemas/ETag" }
+      schema: { $ref: "#/components/schemas/SeatMapETag" }
+    HoldIfMatch:
+      name: If-Match
+      in: header
+      required: true
+      description: ETag of the hold to release.
+      schema: { $ref: "#/components/schemas/HoldETag" }
     IdempotencyKey:
       name: Idempotency-Key
       in: header
@@ -203,10 +239,14 @@ components:
       description: URI of the created resource.
       required: true
       schema: { type: string, format: uri-reference }
-    ETag:
+    SeatMapETag:
       description: Seat map version.
       required: true
-      schema: { $ref: "#/components/schemas/ETag" }
+      schema: { $ref: "#/components/schemas/SeatMapETag" }
+    HoldETag:
+      description: Token of the hold.
+      required: true
+      schema: { $ref: "#/components/schemas/HoldETag" }
     RetryAfter:
       description: Seconds before retrying.
       required: true
@@ -233,7 +273,7 @@ components:
     SeatMap:
       description: Seat map.
       headers:
-        ETag: { $ref: "#/components/headers/ETag" }
+        ETag: { $ref: "#/components/headers/SeatMapETag" }
       content:
         application/json:
           schema: { $ref: "#/components/schemas/SeatMap" }
@@ -244,6 +284,16 @@ components:
           schema: { $ref: "#/components/schemas/SeatStreamEvent" }
     Hold:
       description: Seat held by the caller.
+      headers:
+        ETag: { $ref: "#/components/headers/HoldETag" }
+      content:
+        application/json:
+          schema: { $ref: "#/components/schemas/Hold" }
+    HoldCreated:
+      description: Seat held now.
+      headers:
+        Location: { $ref: "#/components/headers/Location" }
+        ETag: { $ref: "#/components/headers/HoldETag" }
       content:
         application/json:
           schema: { $ref: "#/components/schemas/Hold" }
@@ -281,7 +331,7 @@ components:
     NotModified:
       description: Seat map unchanged since If-None-Match.
       headers:
-        ETag: { $ref: "#/components/headers/ETag" }
+        ETag: { $ref: "#/components/headers/SeatMapETag" }
     BadRequest:
       description: Malformed request.
       content:
@@ -304,6 +354,16 @@ components:
           schema: { $ref: "#/components/schemas/Problem" }
     Conflict:
       description: Conflicts with the current state.
+      content:
+        application/problem+json:
+          schema: { $ref: "#/components/schemas/Problem" }
+    PreconditionFailed:
+      description: The seat is held with another token.
+      content:
+        application/problem+json:
+          schema: { $ref: "#/components/schemas/Problem" }
+    PreconditionRequired:
+      description: If-Match missing.
       content:
         application/problem+json:
           schema: { $ref: "#/components/schemas/Problem" }
@@ -332,14 +392,15 @@ components:
     EventId: { description: Event identifier., type: string, examples: ["4711"] }
     SessionId: { description: Session identifier., type: string, examples: ["1"] }
     SectorId: { description: Sector identifier., type: string, examples: ["1"] }
-    SessionSeatId: { description: "Seat of a session (venue, event, session, sector, row, number).", type: string, examples: ["3-4711-1-1-E-14"] }
     PriceTierId: { description: Price tier identifier., type: string, examples: ["2"] }
     OrderId: { description: Order identifier., type: string, examples: ["70412"] }
     Row: { description: Seat row., type: string, minLength: 1, maxLength: 10, examples: [E] }
     SeatNumber: { description: Seat number in the row., type: integer, minimum: 1, examples: [14] }
     SeatStatus: { description: Seat state., type: string, enum: [FREE, HELD, SOLD], examples: [FREE] }
     SeatCount: { description: Number of seats., type: integer, minimum: 0, examples: [2] }
-    ETag: { description: Seat map version., type: string, examples: ['"42"'] }
+    SeatMapETag: { description: Seat map version., type: string, examples: ['"42"'] }
+    HoldToken: { description: Token of a hold., type: string, format: uuid, examples: [7c9e6679-7425-40de-944b-e07fc1f90ae7] }
+    HoldETag: { description: Hold token as an ETag., type: string, examples: ['"7c9e6679-7425-40de-944b-e07fc1f90ae7"'] }
     FirstName: { description: First name., type: string, minLength: 1, maxLength: 100, examples: [Anna] }
     LastName: { description: Last name., type: string, minLength: 1, maxLength: 100, examples: [Rossi] }
     Email: { description: E-mail address., type: string, format: email, examples: [anna.rossi@example.com] }
@@ -371,14 +432,25 @@ components:
       properties:
         firstName: { $ref: "#/components/schemas/FirstName" }
         lastName: { $ref: "#/components/schemas/LastName" }
+    SeatRef:
+      description: Seat of the venue.
+      type: object
+      additionalProperties: false
+      required: [sectorId, row, number]
+      properties:
+        sectorId: { $ref: "#/components/schemas/SectorId" }
+        row: { $ref: "#/components/schemas/Row" }
+        number: { $ref: "#/components/schemas/SeatNumber" }
 
     # Inputs
     OrderInput:
       description: New order.
       type: object
       additionalProperties: false
-      required: [customerEmail, items]
+      required: [eventId, sessionId, customerEmail, items]
       properties:
+        eventId: { $ref: "#/components/schemas/EventId" }
+        sessionId: { $ref: "#/components/schemas/SessionId" }
         customerEmail: { $ref: "#/components/schemas/Email" }
         items:
           description: Held seats to buy.
@@ -390,9 +462,9 @@ components:
       description: Held seat to buy.
       type: object
       additionalProperties: false
-      required: [sessionSeatId, holder]
+      required: [seat, holder]
       properties:
-        sessionSeatId: { $ref: "#/components/schemas/SessionSeatId" }
+        seat: { $ref: "#/components/schemas/SeatRef" }
         holder: { $ref: "#/components/schemas/Holder" }
     CancellationInput:
       description: Cancellation.
@@ -406,9 +478,8 @@ components:
     SeatMap:
       description: Seat map of a session.
       type: object
-      required: [sessionId, seats]
+      required: [seats]
       properties:
-        sessionId: { $ref: "#/components/schemas/SessionId" }
         seats:
           description: Seats on sale.
           type: array
@@ -416,20 +487,17 @@ components:
     SeatState:
       description: Seat on sale.
       type: object
-      required: [id, sectorId, row, number, priceTierId, status]
+      required: [seat, priceTierId, status]
       properties:
-        id: { $ref: "#/components/schemas/SessionSeatId" }
-        sectorId: { $ref: "#/components/schemas/SectorId" }
-        row: { $ref: "#/components/schemas/Row" }
-        number: { $ref: "#/components/schemas/SeatNumber" }
+        seat: { $ref: "#/components/schemas/SeatRef" }
         priceTierId: { $ref: "#/components/schemas/PriceTierId" }
         status: { $ref: "#/components/schemas/SeatStatus" }
     SeatChange:
       description: Change of a seat state.
       type: object
-      required: [sessionSeatId, status]
+      required: [seat, status]
       properties:
-        sessionSeatId: { $ref: "#/components/schemas/SessionSeatId" }
+        seat: { $ref: "#/components/schemas/SeatRef" }
         status: { $ref: "#/components/schemas/SeatStatus" }
     SeatStreamEvent:
       description: "Event `snapshot` (SeatMap) first, then `seat` (SeatChange); event id = seat map version; heartbeat every 15 s."
@@ -440,11 +508,12 @@ components:
     Hold:
       description: Seat held by the caller.
       type: object
-      required: [sessionSeatId, eventId, sessionId, expiresAt]
+      required: [eventId, sessionId, seat, token, expiresAt]
       properties:
-        sessionSeatId: { $ref: "#/components/schemas/SessionSeatId" }
         eventId: { $ref: "#/components/schemas/EventId" }
         sessionId: { $ref: "#/components/schemas/SessionId" }
+        seat: { $ref: "#/components/schemas/SeatRef" }
+        token: { $ref: "#/components/schemas/HoldToken" }
         expiresAt: { $ref: "#/components/schemas/Instant" }
     HoldList:
       description: Active holds.
@@ -459,9 +528,9 @@ components:
     OrderItem:
       description: Seat of an order.
       type: object
-      required: [sessionSeatId, holder, price]
+      required: [seat, holder, price]
       properties:
-        sessionSeatId: { $ref: "#/components/schemas/SessionSeatId" }
+        seat: { $ref: "#/components/schemas/SeatRef" }
         holder: { $ref: "#/components/schemas/Holder" }
         price: { $ref: "#/components/schemas/Money" }
     OrderBase:
@@ -550,9 +619,8 @@ components:
     EventSales:
       description: Sales of an event.
       type: object
-      required: [eventId, sold, total, sessions]
+      required: [sold, total, sessions]
       properties:
-        eventId: { $ref: "#/components/schemas/EventId" }
         sold: { $ref: "#/components/schemas/SeatCount" }
         total: { $ref: "#/components/schemas/Money" }
         sessions:
@@ -592,11 +660,11 @@ components:
         title: { description: Error class title., type: string, examples: [Seat taken] }
         status: { description: HTTP status., type: integer, examples: [409] }
         detail: { description: Explanation., type: string, examples: [Seat E14 is held by another customer.] }
-        instance: { description: Request path., type: string, examples: [/api/v1/holds/3-4711-1-1-E-14] }
+        instance: { description: Request path., type: string, examples: [/api/v1/events/4711/sessions/1/seats/1/E/14/hold] }
         code:
           description: "Stable error code (open enum)."
           type: string
-          enum: [malformed_request, validation_failed, mixed_sessions, idempotency_key_reused, unauthorized, forbidden, not_found, seat_taken, seat_not_held, hold_limit_reached, sales_closed, order_not_cancellable, rate_limited, payments_unavailable]
+          enum: [malformed_request, validation_failed, idempotency_key_reused, unauthorized, forbidden, not_found, seat_taken, seat_not_held, hold_changed, hold_token_required, hold_limit_reached, sales_closed, order_not_cancellable, rate_limited, payments_unavailable]
           examples: [seat_taken]
         errors: { description: "Only when code is validation_failed.", type: array, items: { $ref: "#/components/schemas/FieldError" } }
 

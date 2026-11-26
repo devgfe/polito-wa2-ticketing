@@ -9,12 +9,21 @@ The editable source is [`docs/er-schema-catalogue.er`](docs/er-schema-catalogue.
 
 ## Logical schema
 
-Primary keys in **bold**, `*` = nullable.
+Primary keys in **bold**, `*` = nullable, `→ table (columns)` = foreign key.
 
 - venue(**id**, name, city, time_zone, owner_id)
-- sector(**venue_id** → venue, **id**, name)
-- seat(**(venue_id, sector_id)** → sector, **row**, **number**)
-- event(**id**, venue_id → venue, organizer_id, name, sale_start, published_at\*, currency)
-- session(**event_id** → event, **id**, starts_at, ends_at, sale_end)
-- price_tier(**(event_id, session_id)** → session, **id**, name, price)
-- session_seat(**(event_id, session_id)** → session, **(venue_id, sector_id, row, number)** → seat, (event_id, session_id, price_tier_id) → price_tier)
+- sector(**venue_id**, **id**, name)
+  - venue_id → venue (id)
+- seat(**venue_id**, **sector_id**, **row**, **number**)
+  - (venue_id, sector_id) → sector (venue_id, id)
+- event(**id**, venue_id, organizer_id, name, sale_start, published_at\*, currency)
+  - venue_id → venue (id)
+- session(**event_id**, **id**, starts_at, ends_at, sale_end)
+  - event_id → event (id)
+- price_tier(**event_id**, **session_id**, **id**, name, price)
+  - (event_id, session_id) → session (event_id, id)
+- session_seat(**event_id**, **session_id**, **venue_id**, **sector_id**, **row**, **number**, price_tier_id)
+  - (event_id, session_id) → session (event_id, id)
+  - (event_id, venue_id) → event (id, venue_id)
+  - (venue_id, sector_id, row, number) → seat (venue_id, sector_id, row, number)
+  - (event_id, session_id, price_tier_id) → price_tier (event_id, session_id, id)
