@@ -6,20 +6,22 @@ The same seat must never be sold twice (NFR1). This is hard because, when sales 
 The obvious approach, "read the seat; if it is free, mark it as held", is wrong: two requests can both read "free" before either writes, and both customers believe they got the seat. A lock inside one process does not help, because the other replicas do not see it. The decision must therefore be taken by the database, the only component shared by all replicas.
 
 ## Decision
-- Inventory & orders keeps one record per seat and session (table `session_seat`), in state FREE, HELD or SOLD; a held record also stores the customer and the expiry time.
+- Inventory & orders keeps one record per seat and session (table `session_seat`), in state FREE, HELD or SOLD; a held record also stores the customer, the expiry time and a token that changes at every new hold.
 - Every state change is a single conditional UPDATE, which checks the current state and writes the new one in one atomic step. Holding a seat:
 
   ```sql
   UPDATE session_seat
-  SET state = 'HELD', customer_id = $customer, expires_at = now() + interval '10 minutes'
+  SET state = 'HELD', customer_id = $customer, expires_at = now() + interval '10 minutes',
+      hold_token = gen_random_uuid()
   WHERE venue_id = $venue AND event_id = $event AND session_id = $session
     AND sector_id = $sector AND row = $row AND number = $number
     AND (state = 'FREE' OR (state = 'HELD' AND expires_at < now()));
   ```
 
-  The seat is identified by its key in the schema (venue, event, session, sector, row and number), the same six attributes carried by the `sessionSeatId` of the API, and `interval '10 minutes'` sets the expiry ten minutes after the hold. If the UPDATE changes no record, the seat was taken by someone else: the API answers 409.
-- HELD → SOLD happens when the payment is captured, only for the seats of that order held by that customer, in the same transaction that marks the order as PAID.
+  The seat is identified by its key in the schema (venue, event, session, sector, row and number): the API carries all of them in the path except the venue, which comes from the event. `interval '10 minutes'` sets the expiry ten minutes after the hold, and every new hold gets a new token. If the UPDATE changes no record, the service reads the seat: if the caller already holds it, the answer is 200 with the existing hold and token, without extending its expiry; otherwise the seat was taken by someone else and the API answers 409.
+- HELD → SOLD happens when the payment is captured, only for the seats of that order held by that customer, in the same transaction that marks the order as PAID; expiry and token are cleared.
 - Holds expire after about ten minutes without any request. An expired hold is always treated as free, as the hold UPDATE above shows, even if no explicit release has happened yet.
+- A seat that returns to FREE (release, expiry, cancellation) clears customer, expiry and token.
 
 ## Rejected
 - **Check in the application, then write.** Two requests can both pass the check, as described above.

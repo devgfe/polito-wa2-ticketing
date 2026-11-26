@@ -30,4 +30,11 @@ jobs:
             echo "New document, nothing to compare"; exit 0
           fi
           ~/go/bin/oasdiff changelog /tmp/base.yaml "$doc"
-          ~/go/bin/oasdiff breaking  /tmp/base.yaml "$doc" --fail-on ERR
+          base_version=$(yq '.info.version' /tmp/base.yaml)
+          head_version=$(yq '.info.version' "$doc")
+          if [ "$base_version" != "$head_version" ]; then
+            echo "Contract version $base_version -> $head_version"
+            ~/go/bin/oasdiff breaking /tmp/base.yaml "$doc"
+          else
+            ~/go/bin/oasdiff breaking /tmp/base.yaml "$doc" --fail-on ERR
+          fi

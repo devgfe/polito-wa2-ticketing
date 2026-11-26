@@ -30,17 +30,18 @@ CREATE TABLE event (
     venue_id     BIGINT NOT NULL REFERENCES venue (id),
     organizer_id UUID NOT NULL,
     name         TEXT NOT NULL,
-    sale_start   TIMESTAMPTZ NOT NULL,
+    sale_start   TIMESTAMP NOT NULL,
     published_at TIMESTAMPTZ,
-    currency     CHAR(3) NOT NULL CHECK (currency ~ '^[A-Z]{3}$')
+    currency     CHAR(3) NOT NULL CHECK (currency ~ '^[A-Z]{3}$'),
+    UNIQUE (id, venue_id)
 );
 
 CREATE TABLE session (
     event_id  BIGINT NOT NULL REFERENCES event (id),
     id        BIGINT GENERATED ALWAYS AS IDENTITY,
-    starts_at TIMESTAMPTZ NOT NULL,
-    ends_at   TIMESTAMPTZ NOT NULL,
-    sale_end  TIMESTAMPTZ NOT NULL,
+    starts_at TIMESTAMP NOT NULL,
+    ends_at   TIMESTAMP NOT NULL,
+    sale_end  TIMESTAMP NOT NULL,
     PRIMARY KEY (event_id, id),
     CHECK (ends_at > starts_at)
 );
@@ -64,6 +65,7 @@ CREATE TABLE session_seat (
     number        INTEGER NOT NULL,
     price_tier_id BIGINT NOT NULL,
     PRIMARY KEY (event_id, session_id, venue_id, sector_id, row, number),
+    FOREIGN KEY (event_id, venue_id) REFERENCES event (id, venue_id),
     FOREIGN KEY (event_id, session_id) REFERENCES session (event_id, id),
     FOREIGN KEY (venue_id, sector_id, row, number) REFERENCES seat (venue_id, sector_id, row, number),
     FOREIGN KEY (event_id, session_id, price_tier_id) REFERENCES price_tier (event_id, session_id, id)
