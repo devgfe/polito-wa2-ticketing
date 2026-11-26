@@ -30,6 +30,7 @@ Examples:
 - Squash merge only: the PR title becomes the commit message on `main`, so it must follow Conventional Commits.
 - At least one approval from a teammate (docs included).
 - CI must pass before merging.
+- A breaking change to an OpenAPI contract needs a bump of `info.version` in the same PR (minor while 0.x, major from 1.0), otherwise the OpenAPI check fails.
 - Keep PRs small and focused.
 - Delete the branch after merge.
 
