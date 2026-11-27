@@ -31,3 +31,6 @@ data class SeatRef(val sectorId: Long, val row: String, val number: Int) {
  * The venue of its primary key is not here: it comes from the event (ADR-0003).
  */
 data class SessionSeatId(val session: SessionRef, val seat: SeatRef)
+
+/** The most seats a customer can hold in one session and buy in one order (openapi.yaml, maxItems; ADR-0003). */
+const val MAX_SEATS_PER_CUSTOMER = 4

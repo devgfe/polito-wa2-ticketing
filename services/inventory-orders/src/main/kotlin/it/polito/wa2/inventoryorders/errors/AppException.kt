@@ -40,6 +40,9 @@ class HoldChanged(seat: SeatRef) : AppException("seat $seat is held with another
 /** An order names a seat that the customer does not hold (ADR-0006). → 409 seat_not_held */
 class SeatNotHeld(seat: SeatRef) : AppException("seat $seat is not held by the customer")
 
+/** Another request with the same Idempotency-Key is still being processed (ADR-0005). → 409 idempotency_key_in_use */
+class IdempotencyKeyInUse : AppException("a request with this Idempotency-Key is still in progress: retry it")
+
 // ---- A dependency failed (server-owned) ----
 
 /** createPayment timed out or failed; the order stays PENDING (ADR-0004). → 503 + Retry-After */

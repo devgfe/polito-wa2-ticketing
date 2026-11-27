@@ -115,7 +115,7 @@ paths:
         "400": { $ref: "#/components/responses/BadRequest" }
         "401": { $ref: "#/components/responses/Unauthorized" }
         "403": { $ref: "#/components/responses/Forbidden" }
-        "409": { $ref: "#/components/responses/Conflict" }
+        "409": { $ref: "#/components/responses/Conflict", description: "A seat is not held by the caller (code seat_not_held), or a request with the same Idempotency-Key is still in progress (code idempotency_key_in_use)." }
         "422": { $ref: "#/components/responses/Unprocessable", description: "Invalid field (code validation_failed) or Idempotency-Key reused with a different request (code idempotency_key_reused)." }
         "429": { $ref: "#/components/responses/TooManyRequests" }
         "503": { $ref: "#/components/responses/Unavailable" }
@@ -435,16 +435,23 @@ components:
         sectorId: { $ref: "#/components/schemas/SectorId" }
         row: { $ref: "#/components/schemas/Row" }
         number: { $ref: "#/components/schemas/SeatNumber" }
+    SessionRef:
+      description: Session of an event.
+      type: object
+      additionalProperties: false
+      required: [eventId, sessionId]
+      properties:
+        eventId: { $ref: "#/components/schemas/EventId" }
+        sessionId: { $ref: "#/components/schemas/SessionId" }
 
     # Inputs
     OrderInput:
       description: New order.
       type: object
       additionalProperties: false
-      required: [eventId, sessionId, customerEmail, items]
+      required: [session, customerEmail, items]
       properties:
-        eventId: { $ref: "#/components/schemas/EventId" }
-        sessionId: { $ref: "#/components/schemas/SessionId" }
+        session: { $ref: "#/components/schemas/SessionRef" }
         customerEmail: { $ref: "#/components/schemas/Email" }
         items:
           description: Held seats to buy.
@@ -502,10 +509,9 @@ components:
     Hold:
       description: Seat held by the caller.
       type: object
-      required: [eventId, sessionId, seat, token, expiresAt]
+      required: [session, seat, token, expiresAt]
       properties:
-        eventId: { $ref: "#/components/schemas/EventId" }
-        sessionId: { $ref: "#/components/schemas/SessionId" }
+        session: { $ref: "#/components/schemas/SessionRef" }
         seat: { $ref: "#/components/schemas/SeatRef" }
         token: { $ref: "#/components/schemas/HoldToken" }
         expiresAt: { $ref: "#/components/schemas/Instant" }
@@ -530,11 +536,10 @@ components:
     OrderBase:
       description: Fields of every order.
       type: object
-      required: [id, eventId, sessionId, status, orderedAt, customerEmail, total, items]
+      required: [id, session, status, orderedAt, customerEmail, total, items]
       properties:
         id: { $ref: "#/components/schemas/OrderId" }
-        eventId: { $ref: "#/components/schemas/EventId" }
-        sessionId: { $ref: "#/components/schemas/SessionId" }
+        session: { $ref: "#/components/schemas/SessionRef" }
         status: { $ref: "#/components/schemas/OrderStatus" }
         orderedAt: { $ref: "#/components/schemas/Instant" }
         customerEmail: { $ref: "#/components/schemas/Email" }
@@ -658,7 +663,7 @@ components:
         code:
           description: "Stable error code (open enum)."
           type: string
-          enum: [malformed_request, validation_failed, idempotency_key_reused, unauthorized, forbidden, not_found, seat_taken, seat_not_held, hold_changed, hold_limit_reached, sales_closed, order_not_cancellable, rate_limited, payments_unavailable]
+          enum: [malformed_request, validation_failed, idempotency_key_reused, idempotency_key_in_use, unauthorized, forbidden, not_found, seat_taken, seat_not_held, hold_changed, hold_limit_reached, sales_closed, order_not_cancellable, rate_limited, payments_unavailable]
           examples: [seat_taken]
         errors: { description: "Only when code is validation_failed.", type: array, items: { $ref: "#/components/schemas/FieldError" } }
 

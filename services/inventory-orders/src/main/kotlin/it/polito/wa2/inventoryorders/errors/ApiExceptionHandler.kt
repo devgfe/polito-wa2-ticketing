@@ -31,6 +31,7 @@ class ApiExceptionHandler : ResponseEntityExceptionHandler() {
             is NotFound -> Triple(404, "not_found", "Not found")
             is SeatTaken -> Triple(409, "seat_taken", "Seat taken")
             is SeatNotHeld -> Triple(409, "seat_not_held", "Seat not held")
+            is IdempotencyKeyInUse -> Triple(409, "idempotency_key_in_use", "Idempotency key in use")
             is HoldLimitReached -> Triple(409, "hold_limit_reached", "Hold limit reached")
             is SalesClosed -> Triple(409, "sales_closed", "Sales closed")
             is HoldChanged -> Triple(412, "hold_changed", "Hold changed")
@@ -70,7 +71,7 @@ class ApiExceptionHandler : ResponseEntityExceptionHandler() {
             })
         )
         statusCode.value() == 400 -> app(MalformedRequest("the request is malformed"))
-        statusCode.value() == 404 -> app(NotFound("resource")) 
+        statusCode.value() == 404 -> app(NotFound("resource"))
         else -> super.handleExceptionInternal(ex, body, headers, statusCode, request)
     }
 
