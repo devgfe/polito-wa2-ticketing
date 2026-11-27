@@ -4,6 +4,7 @@ import it.polito.wa2.inventoryorders.common.CustomerId
 import it.polito.wa2.inventoryorders.common.SeatRef
 import it.polito.wa2.inventoryorders.common.SessionRef
 import it.polito.wa2.inventoryorders.common.SessionSeatId
+import it.polito.wa2.inventoryorders.seats.domain.SeatMapSeat
 import it.polito.wa2.inventoryorders.seats.domain.SessionSeat
 import java.time.Instant
 import java.time.Duration
@@ -16,6 +17,19 @@ interface SessionSeatRepository {
 
     /** Whether the sales of the session are open at `now`; null if the session does not exist. */
     fun isOnSale(session: SessionRef, now: Instant): Boolean?
+
+    /**
+     * The version of the seat map of the session, the ETag of getSeatMap:
+     * bumped in the same transaction of every change of the states of its seats.
+     * Null if the session does not exist in the copies.
+     */
+    fun versionOf(session: SessionRef): Long?
+
+    /**
+     * Every seat of the session, with its state at `now` (an expired hold reads FREE, ADR-0003);
+     * empty if the session does not exist in the copies.
+     */
+    fun seatsOf(session: SessionRef, now: Instant): List<SeatMapSeat>
 
     /** The seat in its current state; null if the session has no such seat. */
     fun find(id: SessionSeatId): SessionSeat?

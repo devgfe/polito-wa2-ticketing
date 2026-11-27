@@ -23,6 +23,12 @@ class IdempotencyKeyReused : AppException("the Idempotency-Key was used for a di
 /** → 404 not_found */
 class NotFound(what: String) : AppException("$what not found")
 
+/** → 401 unauthorized */
+class Unauthorized(detail: String = "missing or invalid token") : AppException(detail)
+
+/** → 403 forbidden */
+class Forbidden(detail: String = "operation not allowed") : AppException(detail)
+
 // ---- The current state does not allow it (business rules) ----
 
 /** Another customer holds or bought the seat (ADR-0003). → 409 seat_taken */
@@ -39,6 +45,9 @@ class HoldChanged(seat: SeatRef) : AppException("seat $seat is held with another
 
 /** An order names a seat that the customer does not hold (ADR-0006). → 409 seat_not_held */
 class SeatNotHeld(seat: SeatRef) : AppException("seat $seat is not held by the customer")
+
+/** An order cannot be cancelled (e.g. not paid). → 409 order_not_cancellable */
+class OrderNotCancellable(detail: String = "order cannot be cancelled") : AppException(detail)
 
 /** Another request with the same Idempotency-Key is still being processed (ADR-0005). → 409 idempotency_key_in_use */
 class IdempotencyKeyInUse : AppException("a request with this Idempotency-Key is still in progress: retry it")

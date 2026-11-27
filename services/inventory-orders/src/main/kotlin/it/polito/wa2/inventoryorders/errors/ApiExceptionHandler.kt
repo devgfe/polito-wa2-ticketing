@@ -28,12 +28,15 @@ class ApiExceptionHandler : ResponseEntityExceptionHandler() {
     fun app(ex: AppException): ResponseEntity<Any> {
         val (status, code, title) = when (ex) {
             is MalformedRequest -> Triple(400, "malformed_request", "Malformed request")
+            is Unauthorized -> Triple(401, "unauthorized", "Unauthorized")
+            is Forbidden -> Triple(403, "forbidden", "Forbidden")
             is NotFound -> Triple(404, "not_found", "Not found")
             is SeatTaken -> Triple(409, "seat_taken", "Seat taken")
             is SeatNotHeld -> Triple(409, "seat_not_held", "Seat not held")
             is IdempotencyKeyInUse -> Triple(409, "idempotency_key_in_use", "Idempotency key in use")
             is HoldLimitReached -> Triple(409, "hold_limit_reached", "Hold limit reached")
             is SalesClosed -> Triple(409, "sales_closed", "Sales closed")
+            is OrderNotCancellable -> Triple(409, "order_not_cancellable", "Order not cancellable")
             is HoldChanged -> Triple(412, "hold_changed", "Hold changed")
             is ValidationFailed -> Triple(422, "validation_failed", "Validation failed")
             is IdempotencyKeyReused -> Triple(422, "idempotency_key_reused", "Idempotency key reused")

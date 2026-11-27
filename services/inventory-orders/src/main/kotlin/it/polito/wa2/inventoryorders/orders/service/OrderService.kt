@@ -4,6 +4,7 @@ import it.polito.wa2.inventoryorders.common.CustomerId
 import it.polito.wa2.inventoryorders.config.OrdersProperties
 import it.polito.wa2.inventoryorders.errors.IdempotencyKeyInUse
 import it.polito.wa2.inventoryorders.errors.IdempotencyKeyReused
+import it.polito.wa2.inventoryorders.errors.NotFound
 import it.polito.wa2.inventoryorders.errors.SeatNotHeld
 import it.polito.wa2.inventoryorders.orders.domain.NewOrder
 import it.polito.wa2.inventoryorders.orders.domain.Order
@@ -82,6 +83,21 @@ class OrderService(
         val page = rows.take(limit)
         val next = if (rows.size > limit) OrderCursor(page.last().orderedAt, page.last().id) else null
         return OrderPage(page, next)
+    }
+
+    /** An order of the customer by its id; 404 if it does not exist or belongs to another customer. */
+    @Transactional(readOnly = true)
+    fun getOrder(customer: CustomerId, orderId: Long): Order {
+        val order = orders.findById(orderId) ?: throw NotFound("order $orderId")
+        if (order.customer != customer) throw NotFound("order $orderId")
+        return order
+    }
+
+    /** Cancels a paid order of the customer. */
+    @Transactional
+    fun cancelOrder(customer: CustomerId, orderId: Long, reason: String): Order {
+        val now = clock.instant().truncatedTo(ChronoUnit.MICROS)
+        return orders.cancel(customer, orderId, reason, now)
     }
 
     /** Fingerprint of the body, to recognise a key reused for a different purchase (ADR-0005). */

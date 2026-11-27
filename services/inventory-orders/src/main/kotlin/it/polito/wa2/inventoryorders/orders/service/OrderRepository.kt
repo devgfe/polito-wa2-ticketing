@@ -4,6 +4,7 @@ import it.polito.wa2.inventoryorders.common.CustomerId
 import it.polito.wa2.inventoryorders.orders.domain.Order
 import it.polito.wa2.inventoryorders.orders.domain.OrderCursor
 import it.polito.wa2.inventoryorders.orders.domain.OrderDraft
+import java.time.Instant
 import java.time.Duration
 import java.util.UUID
 
@@ -25,4 +26,10 @@ interface OrderRepository {
 
     /** The orders of the customer, newest first, after the cursor (null: the first page), at most `size`. */
     fun page(customer: CustomerId, after: OrderCursor?, size: Int): List<Order>
+
+    /** The order by its id, or null if it does not exist. */
+    fun findById(orderId: Long): Order?
+
+    /** Cancels a paid order: sets status to CANCELLED, frees its seats to FREE, bumps version. */
+    fun cancel(customer: CustomerId, orderId: Long, reason: String, now: Instant): Order
 }
