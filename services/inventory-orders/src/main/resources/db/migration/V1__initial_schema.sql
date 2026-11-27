@@ -70,6 +70,11 @@ CREATE TABLE session_seat (
         OR (state = 'SOLD' AND expires_at IS NULL AND hold_token IS NULL))
 );
 
+-- Active holds of a customer: GET /holds and the hold limit of ADR-0003. Performance only.
+CREATE INDEX session_seat_held_by_customer
+    ON session_seat (customer_id, expires_at)
+    WHERE state = 'HELD';
+
 CREATE TABLE orders (
     id                  BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
     event_id            BIGINT NOT NULL,
