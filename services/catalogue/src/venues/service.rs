@@ -1,4 +1,3 @@
-#![allow(dead_code)]
 use std::sync::Arc;
 
 use crate::venues::domain::{NewVenue, Venue, VenueId};
@@ -31,6 +30,7 @@ impl From<RepositoryError> for ServiceError {
     }
 }
 
+#[derive(Clone)]
 pub struct VenueService {
     venues: Arc<dyn VenueRepository>,
 }

@@ -13,7 +13,7 @@ use sqlx::{PgPool, postgres::PgPoolOptions};
 use tower_http::{cors::{Any, CorsLayer}, trace::TraceLayer};
 use tracing_subscriber::EnvFilter;
 
-use crate::common::Pagination;
+use crate::{common::Pagination, venues::{service::VenueService, store::PgVenueRepository}};
 use crate::config::Config;
 use crate::events::{service::EventService, store::PgEventRepository};
 
@@ -24,7 +24,7 @@ pub struct AppState {
     pub pool: PgPool,
     pub pagination: Pagination,
     pub events: EventService,
-    // TODO(venues): pub venues: VenueService,
+    pub venues: VenueService
 }
 
 impl FromRef<AppState> for EventService {
@@ -66,12 +66,13 @@ async fn main() -> anyhow::Result<()> {
         pool: pool.clone(),
         pagination: Pagination { default: config.page_size_default, max: config.page_size_max },
         events: EventService::new(Arc::new(PgEventRepository::new(pool.clone()))),
+        venues: VenueService::new(Arc::new(PgVenueRepository::new(pool.clone())))
     };
 
     let app = Router::new()
         .route("/health", get(health))
         .merge(events::handler::router())
-        // TODO(venues): .merge(venues::handler::router())
+        .merge(venues::handler::router())
         .with_state(state)
         .layer(TraceLayer::new_for_http())
         .layer(cors(&config)?);

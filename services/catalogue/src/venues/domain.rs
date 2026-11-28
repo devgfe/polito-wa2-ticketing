@@ -1,5 +1,3 @@
-#![allow(dead_code)]
-
 use chrono_tz::Tz;
 use std::{collections::HashSet};
 use crate::common::Violation;

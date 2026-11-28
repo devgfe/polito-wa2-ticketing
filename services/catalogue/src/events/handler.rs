@@ -1,6 +1,9 @@
 use axum::{
     Json, Router,
-    extract::{Path, Query, State, rejection::{JsonRejection, PathRejection, QueryRejection}},
+    extract::{
+        Path, Query, State,
+        rejection::{JsonRejection, PathRejection, QueryRejection},
+    },
     http::{StatusCode, header},
     response::{IntoResponse, Response},
     routing::get,
@@ -39,18 +42,38 @@ async fn create_event(
     let mut errors = Vec::new();
     let name = field(input.name, "name", &mut errors, check_event_name);
     let venue_id = field(input.venue_id, "venueId", &mut errors, parse_venue_id);
-    let currency = field(input.currency, "currency", &mut errors, common::check_currency);
-    let sale_start = field(input.sale_start, "saleStart", &mut errors, |v| common::parse_local(&v));
+    let currency = field(
+        input.currency,
+        "currency",
+        &mut errors,
+        common::check_currency,
+    );
+    let sale_start = field(input.sale_start, "saleStart", &mut errors, |v| {
+        common::parse_local(&v)
+    });
 
-    let (Some(name), Some(venue_id), Some(currency), Some(sale_start)) = (name, venue_id, currency, sale_start) else {
+    let (Some(name), Some(venue_id), Some(currency), Some(sale_start)) =
+        (name, venue_id, currency, sale_start)
+    else {
         return Err(AppError::Validation(errors));
     };
 
-    let new = NewEvent { venue_id, organizer_id: organizer, name, currency, sale_start };
+    let new = NewEvent {
+        venue_id,
+        organizer_id: organizer,
+        name,
+        currency,
+        sale_start,
+    };
     let event = service.create_event(new).await?;
 
     let location = format!("/api/v1/events/{}", event.id.0);
-    Ok((StatusCode::CREATED, [(header::LOCATION, location)], Json(EventDto::from(event))).into_response())
+    Ok((
+        StatusCode::CREATED,
+        [(header::LOCATION, location)],
+        Json(EventDto::from(event)),
+    )
+        .into_response())
 }
 
 async fn get_event(
@@ -70,9 +93,16 @@ async fn list_events(
 ) -> Result<Json<EventPageDto>, AppError> {
     let Query(params) = query?;
     let limit = pagination.limit(params.limit)?;
-    let after = params.cursor.as_deref().map(common::decode_cursor).transpose()?.map(EventId);
+    let after = params
+        .cursor
+        .as_deref()
+        .map(common::decode_cursor)
+        .transpose()?
+        .map(EventId);
 
-    let page = service.list_events(params.city.as_deref(), after, limit).await?;
+    let page = service
+        .list_events(params.city.as_deref(), after, limit)
+        .await?;
     Ok(Json(EventPageDto {
         items: page.items.into_iter().map(EventSummaryDto::from).collect(),
         next_cursor: page.next_after.map(|id| common::encode_cursor(id.0)),
@@ -90,16 +120,30 @@ async fn update_event(
     let id = event_id(path)?;
     let Json(patch) = body?;
 
-    if patch.name.is_none() && patch.venue_id.is_none() && patch.currency.is_none() && patch.sale_start.is_none() {
-        return Err(AppError::Validation(vec![FieldError::new("", FieldCode::TooFewItems)]));
+    if patch.name.is_none()
+        && patch.venue_id.is_none()
+        && patch.currency.is_none()
+        && patch.sale_start.is_none()
+    {
+        return Err(AppError::Validation(vec![FieldError::new(
+            "",
+            FieldCode::TooFewItems,
+        )]));
     }
 
     let mut errors = Vec::new();
     let changes = EventChanges {
         name: optional(patch.name, "name", &mut errors, check_event_name),
         venue_id: optional(patch.venue_id, "venueId", &mut errors, parse_venue_id),
-        currency: optional(patch.currency, "currency", &mut errors, common::check_currency),
-        sale_start: optional(patch.sale_start, "saleStart", &mut errors, |v| common::parse_local(&v)),
+        currency: optional(
+            patch.currency,
+            "currency",
+            &mut errors,
+            common::check_currency,
+        ),
+        sale_start: optional(patch.sale_start, "saleStart", &mut errors, |v| {
+            common::parse_local(&v)
+        }),
     };
     if !errors.is_empty() {
         return Err(AppError::Validation(errors));
@@ -241,7 +285,12 @@ struct EventPageDto {
 
 impl From<VenueSummary> for VenueSummaryDto {
     fn from(v: VenueSummary) -> Self {
-        Self { id: v.id.0.to_string(), name: v.name, city: v.city, time_zone: v.time_zone }
+        Self {
+            id: v.id.0.to_string(),
+            name: v.name,
+            city: v.city,
+            time_zone: v.time_zone,
+        }
     }
 }
 
@@ -291,10 +340,25 @@ mod tests {
     use crate::events::domain::Event;
     use crate::events::fake::{event, service_with};
 
+    use crate::venues::{service::VenueService, store::PgVenueRepository};
+    use std::sync::Arc;
+
     fn app(events: Vec<Event>) -> axum::Router {
         // Pool "pigro": non si collega finché nessuno lo usa.
-        let pool = PgPoolOptions::new().connect_lazy("postgres://unused@localhost/unused").unwrap();
-        let state = AppState { pool, pagination: Pagination { default: 20, max: 200 }, events: service_with(events) };
+        let pool = PgPoolOptions::new()
+            .connect_lazy("postgres://unused@localhost/unused")
+            .unwrap();
+        // The venue service is never called by these tests: the lazy pool is never used.
+        let venues = VenueService::new(Arc::new(PgVenueRepository::new(pool.clone())));
+        let state = AppState {
+            pool,
+            pagination: Pagination {
+                default: 20,
+                max: 200,
+            },
+            events: service_with(events),
+            venues,
+        };
         router().with_state(state)
     }
 
@@ -310,7 +374,9 @@ mod tests {
             req = req.header("x-user-id", user.to_string());
         }
         let req = match body {
-            Some(b) => req.header("content-type", "application/json").body(Body::from(b.to_string())),
+            Some(b) => req
+                .header("content-type", "application/json")
+                .body(Body::from(b.to_string())),
             None => req.body(Body::empty()),
         }
         .unwrap();
@@ -319,7 +385,11 @@ mod tests {
         let status = res.status();
         let headers = res.headers().clone();
         let bytes = to_bytes(res.into_body(), usize::MAX).await.unwrap();
-        let json = if bytes.is_empty() { Value::Null } else { serde_json::from_slice(&bytes).unwrap() };
+        let json = if bytes.is_empty() {
+            Value::Null
+        } else {
+            serde_json::from_slice(&bytes).unwrap()
+        };
         (status, headers, json)
     }
 
@@ -329,20 +399,34 @@ mod tests {
 
     #[tokio::test]
     async fn create_returns_201_with_location_and_the_draft() {
-        let (status, headers, body) = call(app(vec![]), "POST", "/api/v1/events", Some(Uuid::new_v4()), Some(VALID)).await;
+        let (status, headers, body) = call(
+            app(vec![]),
+            "POST",
+            "/api/v1/events",
+            Some(Uuid::new_v4()),
+            Some(VALID),
+        )
+        .await;
 
         assert_eq!(status, StatusCode::CREATED);
         assert_eq!(headers["location"], "/api/v1/events/1");
         assert_eq!(body["id"], "1");
-        assert_eq!(body["venue"], json!({"id":"3","name":"Venue 3","city":"Torino","timeZone":"Europe/Rome"}));
+        assert_eq!(
+            body["venue"],
+            json!({"id":"3","name":"Venue 3","city":"Torino","timeZone":"Europe/Rome"})
+        );
         assert_eq!(body["saleStart"], "2026-11-04T18:00:00");
-        assert!(body.get("publishedAt").is_none(), "a draft has no publishedAt");
+        assert!(
+            body.get("publishedAt").is_none(),
+            "a draft has no publishedAt"
+        );
         assert_eq!(body["sessions"], json!([]));
     }
 
     #[tokio::test]
     async fn create_without_user_is_401_problem() {
-        let (status, headers, body) = call(app(vec![]), "POST", "/api/v1/events", None, Some(VALID)).await;
+        let (status, headers, body) =
+            call(app(vec![]), "POST", "/api/v1/events", None, Some(VALID)).await;
         assert_eq!(status, StatusCode::UNAUTHORIZED);
         assert_eq!(headers["content-type"], "application/problem+json");
         assert_eq!(body["code"], "unauthorized");
@@ -350,8 +434,14 @@ mod tests {
 
     #[tokio::test]
     async fn create_with_missing_and_invalid_fields_lists_every_error() {
-        let (status, _, body) =
-            call(app(vec![]), "POST", "/api/v1/events", Some(Uuid::new_v4()), Some(r#"{"name":"","currency":"eur"}"#)).await;
+        let (status, _, body) = call(
+            app(vec![]),
+            "POST",
+            "/api/v1/events",
+            Some(Uuid::new_v4()),
+            Some(r#"{"name":"","currency":"eur"}"#),
+        )
+        .await;
 
         assert_eq!(status, StatusCode::UNPROCESSABLE_ENTITY);
         assert_eq!(body["code"], "validation_failed");
@@ -359,7 +449,12 @@ mod tests {
             .as_array()
             .unwrap()
             .iter()
-            .map(|e| (e["field"].as_str().unwrap().into(), e["code"].as_str().unwrap().into()))
+            .map(|e| {
+                (
+                    e["field"].as_str().unwrap().into(),
+                    e["code"].as_str().unwrap().into(),
+                )
+            })
             .collect();
         assert_eq!(
             errors,
@@ -374,7 +469,14 @@ mod tests {
 
     #[tokio::test]
     async fn create_with_broken_json_is_400() {
-        let (status, _, body) = call(app(vec![]), "POST", "/api/v1/events", Some(Uuid::new_v4()), Some("{oops")).await;
+        let (status, _, body) = call(
+            app(vec![]),
+            "POST",
+            "/api/v1/events",
+            Some(Uuid::new_v4()),
+            Some("{oops"),
+        )
+        .await;
         assert_eq!(status, StatusCode::BAD_REQUEST);
         assert_eq!(body["code"], "malformed_request");
     }
@@ -382,7 +484,14 @@ mod tests {
     #[tokio::test]
     async fn create_with_unknown_venue_is_422_unknown_venue() {
         let body = VALID.replace(r#""venueId":"3""#, r#""venueId":"99""#);
-        let (status, _, body) = call(app(vec![]), "POST", "/api/v1/events", Some(Uuid::new_v4()), Some(&body)).await;
+        let (status, _, body) = call(
+            app(vec![]),
+            "POST",
+            "/api/v1/events",
+            Some(Uuid::new_v4()),
+            Some(&body),
+        )
+        .await;
         assert_eq!(status, StatusCode::UNPROCESSABLE_ENTITY);
         assert_eq!(body["code"], "unknown_venue");
     }
@@ -392,11 +501,25 @@ mod tests {
     #[tokio::test]
     async fn a_draft_is_404_for_anonymous_and_200_for_its_organizer() {
         let owner = Uuid::new_v4();
-        let (status, _, body) = call(app(vec![event(1, owner, false)]), "GET", "/api/v1/events/1", None, None).await;
+        let (status, _, body) = call(
+            app(vec![event(1, owner, false)]),
+            "GET",
+            "/api/v1/events/1",
+            None,
+            None,
+        )
+        .await;
         assert_eq!(status, StatusCode::NOT_FOUND);
         assert_eq!(body["code"], "not_found");
 
-        let (status, _, _) = call(app(vec![event(1, owner, false)]), "GET", "/api/v1/events/1", Some(owner), None).await;
+        let (status, _, _) = call(
+            app(vec![event(1, owner, false)]),
+            "GET",
+            "/api/v1/events/1",
+            Some(owner),
+            None,
+        )
+        .await;
         assert_eq!(status, StatusCode::OK);
     }
 
@@ -414,7 +537,14 @@ mod tests {
         let o = Uuid::new_v4();
         let events = vec![event(1, o, true), event(2, o, false), event(3, o, true)];
 
-        let (status, _, page1) = call(app(events.clone()), "GET", "/api/v1/events?limit=1", None, None).await;
+        let (status, _, page1) = call(
+            app(events.clone()),
+            "GET",
+            "/api/v1/events?limit=1",
+            None,
+            None,
+        )
+        .await;
         assert_eq!(status, StatusCode::OK);
         assert_eq!(page1["items"][0]["id"], "1");
         assert_eq!(page1["limit"], 1);
@@ -428,7 +558,8 @@ mod tests {
 
     #[tokio::test]
     async fn list_limit_out_of_range_is_422() {
-        let (status, _, body) = call(app(vec![]), "GET", "/api/v1/events?limit=500", None, None).await;
+        let (status, _, body) =
+            call(app(vec![]), "GET", "/api/v1/events?limit=500", None, None).await;
         assert_eq!(status, StatusCode::UNPROCESSABLE_ENTITY);
         assert_eq!(body["errors"][0]["field"], "limit");
         assert_eq!(body["errors"][0]["code"], "out_of_range");
@@ -439,9 +570,14 @@ mod tests {
     #[tokio::test]
     async fn patch_renames_the_event() {
         let owner = Uuid::new_v4();
-        let (status, _, body) =
-            call(app(vec![event(1, owner, false)]), "PATCH", "/api/v1/events/1", Some(owner), Some(r#"{"name":"New"}"#))
-                .await;
+        let (status, _, body) = call(
+            app(vec![event(1, owner, false)]),
+            "PATCH",
+            "/api/v1/events/1",
+            Some(owner),
+            Some(r#"{"name":"New"}"#),
+        )
+        .await;
         assert_eq!(status, StatusCode::OK);
         assert_eq!(body["name"], "New");
     }
@@ -449,8 +585,14 @@ mod tests {
     #[tokio::test]
     async fn an_empty_patch_is_422() {
         let owner = Uuid::new_v4();
-        let (status, _, body) =
-            call(app(vec![event(1, owner, false)]), "PATCH", "/api/v1/events/1", Some(owner), Some("{}")).await;
+        let (status, _, body) = call(
+            app(vec![event(1, owner, false)]),
+            "PATCH",
+            "/api/v1/events/1",
+            Some(owner),
+            Some("{}"),
+        )
+        .await;
         assert_eq!(status, StatusCode::UNPROCESSABLE_ENTITY);
         assert_eq!(body["errors"][0]["code"], "too_few_items");
     }
@@ -458,9 +600,14 @@ mod tests {
     #[tokio::test]
     async fn moving_a_published_event_is_409() {
         let owner = Uuid::new_v4();
-        let (status, _, body) =
-            call(app(vec![event(1, owner, true)]), "PATCH", "/api/v1/events/1", Some(owner), Some(r#"{"venueId":"4"}"#))
-                .await;
+        let (status, _, body) = call(
+            app(vec![event(1, owner, true)]),
+            "PATCH",
+            "/api/v1/events/1",
+            Some(owner),
+            Some(r#"{"venueId":"4"}"#),
+        )
+        .await;
         assert_eq!(status, StatusCode::CONFLICT);
         assert_eq!(body["code"], "event_published");
     }
@@ -471,7 +618,8 @@ mod tests {
     async fn delete_returns_204_even_twice() {
         let owner = Uuid::new_v4();
         let app = app(vec![event(1, owner, false)]);
-        let (status, _, _) = call(app.clone(), "DELETE", "/api/v1/events/1", Some(owner), None).await;
+        let (status, _, _) =
+            call(app.clone(), "DELETE", "/api/v1/events/1", Some(owner), None).await;
         assert_eq!(status, StatusCode::NO_CONTENT);
         let (status, _, _) = call(app, "DELETE", "/api/v1/events/1", Some(owner), None).await;
         assert_eq!(status, StatusCode::NO_CONTENT);
@@ -479,9 +627,14 @@ mod tests {
 
     #[tokio::test]
     async fn deleting_someone_elses_event_is_403() {
-        let (status, _, body) =
-            call(app(vec![event(1, Uuid::new_v4(), false)]), "DELETE", "/api/v1/events/1", Some(Uuid::new_v4()), None)
-                .await;
+        let (status, _, body) = call(
+            app(vec![event(1, Uuid::new_v4(), false)]),
+            "DELETE",
+            "/api/v1/events/1",
+            Some(Uuid::new_v4()),
+            None,
+        )
+        .await;
         assert_eq!(status, StatusCode::FORBIDDEN);
         assert_eq!(body["code"], "forbidden");
     }

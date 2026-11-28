@@ -1,5 +1,4 @@
-use std::sync::Arc;
-
+use crate::auth::CurrentUser;
 use crate::{
     AppState,
     error::{AppError, FieldCode, FieldError, field},
@@ -249,12 +248,13 @@ async fn get_venue(
 
 async fn create_venue(
     State(state): State<AppState>,
-    input: Result<Json<VenueInput>, JsonRejection>
-) -> Result<(StatusCode, [(HeaderName, String); 1], Json<VenueDto>), AppError> {
+    user: CurrentUser,
+    input: Result<Json<VenueInput>, JsonRejection>,
+) ->  Result<(StatusCode, [(HeaderName, String); 1], Json<VenueDto>), AppError> {
 
     let Json(body)  = input.map_err(|e| AppError::Malformed(e.body_text()))?;
     
-    let new_venue = match body.into_new_venue(uuid::Uuid::nil()){ // TODO: owner from the JWT
+    let new_venue = match body.into_new_venue(user.require()?){ 
         Ok(new_venue) => {
             new_venue
         },
@@ -273,6 +273,6 @@ async fn create_venue(
 
 pub fn router() -> Router<AppState>{
     Router::new()
-        .route("/venues/{venue_id}", get(get_venue))
-        .route("/venues", post(create_venue))
+        .route("/api/v1/venues/{venue_id}", get(get_venue))
+        .route("/api/v1/venues", post(create_venue))
 }   
