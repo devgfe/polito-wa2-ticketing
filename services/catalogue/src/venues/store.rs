@@ -183,3 +183,27 @@ impl VenueRepository for PgVenueRepository {
         )))
     }
 }
+
+// ------------------------- STORE TESTS (real database) ------------------------
+
+/// The store against a real Postgres. `sqlx::test` creates a fresh database through
+/// `DATABASE_URL`, applies the migrations, runs the test and then drops the database.
+/// Ignored by default because the CI has no database: run it with
+/// `cargo test -- --ignored` while the Postgres of docker compose is up.
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::venues::fake::new_venue;
+
+    #[sqlx::test]
+    #[ignore = "needs a Postgres: run with `cargo test -- --ignored`"]
+    async fn a_saved_venue_reads_back_the_same_and_an_unknown_one_is_none(pool: PgPool) {
+        let repo = PgVenueRepository::new(pool);
+
+        let saved = repo.save(new_venue()).await.unwrap();
+
+        assert_eq!(repo.find(saved.id).await.unwrap(), Some(saved.clone()));
+        let unknown = VenueId::new(saved.id.get() + 1);
+        assert_eq!(repo.find(unknown).await.unwrap(), None);
+    }
+}

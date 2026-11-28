@@ -278,3 +278,266 @@ pub fn router() -> Router<AppState> {
         .route("/api/v1/venues/{venue_id}", get(get_venue))
         .route("/api/v1/venues", post(create_venue))
 }
+
+// ------------------------- HANDLER TESTS ------------------------
+
+/// The HTTP contract of the venues (status, headers, body), over the in-memory repository.
+#[cfg(test)]
+mod tests {
+    use std::sync::Arc;
+
+    use axum::{
+        body::{Body, to_bytes},
+        http::{HeaderMap, Request, StatusCode},
+    };
+    use serde_json::{Value, json};
+    use sqlx::postgres::PgPoolOptions;
+    use tower::ServiceExt; // for .oneshot()
+    use uuid::Uuid;
+
+    use super::router;
+    use crate::AppState;
+    use crate::common::Pagination;
+    use crate::events::{service::EventService, store::PgEventRepository};
+    use crate::venues::{fake, service::VenueService};
+
+    fn app(venues: VenueService) -> axum::Router {
+        // Lazy pool: it never connects, because nothing in these tests uses it.
+        let pool = PgPoolOptions::new()
+            .connect_lazy("postgres://unused@localhost/unused")
+            .unwrap();
+        // The event service is never called by these tests.
+        let events = EventService::new(Arc::new(PgEventRepository::new(pool.clone())));
+        let state = AppState {
+            pool,
+            pagination: Pagination {
+                default: 20,
+                max: 200,
+            },
+            events,
+            venues,
+        };
+        router().with_state(state)
+    }
+
+    async fn call(
+        app: axum::Router,
+        method: &str,
+        uri: &str,
+        user: Option<Uuid>,
+        body: Option<&str>,
+    ) -> (StatusCode, HeaderMap, Value) {
+        let mut req = Request::builder().method(method).uri(uri);
+        if let Some(user) = user {
+            req = req.header("x-user-id", user.to_string());
+        }
+        let req = match body {
+            Some(b) => req
+                .header("content-type", "application/json")
+                .body(Body::from(b.to_string())),
+            None => req.body(Body::empty()),
+        }
+        .unwrap();
+
+        let res = app.oneshot(req).await.unwrap();
+        let status = res.status();
+        let headers = res.headers().clone();
+        let bytes = to_bytes(res.into_body(), usize::MAX).await.unwrap();
+        let json = if bytes.is_empty() {
+            Value::Null
+        } else {
+            serde_json::from_slice(&bytes).unwrap()
+        };
+        (status, headers, json)
+    }
+
+    fn user() -> Option<Uuid> {
+        Some(Uuid::new_v4())
+    }
+
+    /// The `errors` of a problem as (field, code) pairs, to compare them in one assert.
+    fn field_errors(problem: &Value) -> Vec<(String, String)> {
+        problem["errors"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .map(|e| {
+                let field = e["field"].as_str().unwrap().to_string();
+                let code = e["code"].as_str().unwrap().to_string();
+                (field, code)
+            })
+            .collect()
+    }
+
+    fn pairs<const N: usize>(expected: [(&str, &str); N]) -> Vec<(String, String)> {
+        expected
+            .iter()
+            .map(|(field, code)| (field.to_string(), code.to_string()))
+            .collect()
+    }
+
+    const VALID: &str = r#"{"name":"Teatro Regio","city":"Torino","timeZone":"Europe/Rome",
+        "sectors":[{"name":"Stalls","seats":[{"row":"A","number":1},{"row":"A","number":2}]}]}"#;
+
+    // --- POST, then GET ---
+
+    #[tokio::test]
+    async fn a_created_venue_has_a_location_and_reads_back_the_same() {
+        let app = app(fake::service());
+
+        let (status, headers, created) =
+            call(app.clone(), "POST", "/api/v1/venues", user(), Some(VALID)).await;
+        assert_eq!(status, StatusCode::CREATED);
+        assert_eq!(headers["location"], "/api/v1/venues/1");
+        assert_eq!(
+            created,
+            json!({
+                "id": "1", "name": "Teatro Regio", "city": "Torino", "timeZone": "Europe/Rome",
+                "sectors": [{
+                    "id": "1", "name": "Stalls",
+                    "seats": [{ "row": "A", "number": 1 }, { "row": "A", "number": 2 }]
+                }]
+            })
+        );
+
+        let (status, _, read) = call(app, "GET", "/api/v1/venues/1", None, None).await;
+        assert_eq!(status, StatusCode::OK);
+        assert_eq!(read, created);
+    }
+
+    // --- Validation: 422 ---
+
+    #[tokio::test]
+    async fn every_invalid_field_is_reported_at_once_with_its_path() {
+        // City empty, time zone missing, a seat numbered 0, a seat given twice.
+        let body = r#"{"name":"Teatro Regio","city":"","sectors":[
+            {"name":"Stalls","seats":[{"row":"A","number":1},{"row":"A","number":0}]},
+            {"name":"Gallery","seats":[{"row":"B","number":1},{"row":"B","number":1}]}]}"#;
+
+        let (status, headers, problem) = call(
+            app(fake::service()),
+            "POST",
+            "/api/v1/venues",
+            user(),
+            Some(body),
+        )
+        .await;
+
+        assert_eq!(status, StatusCode::UNPROCESSABLE_ENTITY);
+        assert_eq!(headers["content-type"], "application/problem+json");
+        assert_eq!(problem["code"], "validation_failed");
+        assert_eq!(
+            field_errors(&problem),
+            pairs([
+                ("city", "too_short"),
+                ("timeZone", "required"),
+                ("sectors[0].seats[1].number", "out_of_range"),
+                ("sectors[1].seats", "not_unique"),
+            ])
+        );
+    }
+
+    #[tokio::test]
+    async fn each_rule_on_the_venue_as_a_whole_is_checked() {
+        let seat = r#"[{"row":"A","number":1}]"#;
+        let cases = [
+            (
+                format!(r#"{{"name":"T","city":"C","timeZone":"Roma","sectors":[{{"name":"S","seats":{seat}}}]}}"#),
+                "timeZone",
+                "invalid_format",
+            ),
+            (
+                r#"{"name":"T","city":"C","timeZone":"Europe/Rome","sectors":[]}"#.to_string(),
+                "sectors",
+                "too_few_items",
+            ),
+            (
+                r#"{"name":"T","city":"C","timeZone":"Europe/Rome","sectors":[{"name":"S","seats":[]}]}"#
+                    .to_string(),
+                "sectors[0].seats",
+                "too_few_items",
+            ),
+        ];
+        for (body, field, code) in cases {
+            let (status, _, problem) = call(
+                app(fake::service()),
+                "POST",
+                "/api/v1/venues",
+                user(),
+                Some(&body),
+            )
+            .await;
+            assert_eq!(status, StatusCode::UNPROCESSABLE_ENTITY, "{body}");
+            assert_eq!(field_errors(&problem), pairs([(field, code)]), "{body}");
+        }
+    }
+
+    // --- Other errors of the POST ---
+
+    #[tokio::test]
+    async fn a_body_that_is_not_the_expected_json_is_a_400() {
+        // Not JSON, an unknown field, a field of the wrong type.
+        for body in ["{oops", r#"{"name":"T","capacity":10}"#, r#"{"name":5}"#] {
+            let (status, _, problem) = call(
+                app(fake::service()),
+                "POST",
+                "/api/v1/venues",
+                user(),
+                Some(body),
+            )
+            .await;
+            assert_eq!(status, StatusCode::BAD_REQUEST, "{body}");
+            assert_eq!(problem["code"], "malformed_request", "{body}");
+        }
+    }
+
+    #[tokio::test]
+    async fn creating_a_venue_needs_a_user() {
+        let (status, _, problem) = call(
+            app(fake::service()),
+            "POST",
+            "/api/v1/venues",
+            None,
+            Some(VALID),
+        )
+        .await;
+        assert_eq!(status, StatusCode::UNAUTHORIZED);
+        assert_eq!(problem["code"], "unauthorized");
+    }
+
+    #[tokio::test]
+    async fn a_failure_of_the_database_is_a_500_that_hides_its_detail() {
+        let (status, _, problem) = call(
+            app(fake::broken_service()),
+            "POST",
+            "/api/v1/venues",
+            user(),
+            Some(VALID),
+        )
+        .await;
+        assert_eq!(status, StatusCode::INTERNAL_SERVER_ERROR);
+        assert_eq!(problem["code"], "internal_error");
+        assert!(!problem.to_string().contains("the database is down"));
+    }
+
+    // --- GET errors ---
+
+    #[tokio::test]
+    async fn reading_an_unknown_venue_is_a_404_and_a_non_numeric_id_a_400() {
+        let (status, _, problem) =
+            call(app(fake::service()), "GET", "/api/v1/venues/42", None, None).await;
+        assert_eq!(status, StatusCode::NOT_FOUND);
+        assert_eq!(problem["code"], "not_found");
+
+        let (status, _, problem) = call(
+            app(fake::service()),
+            "GET",
+            "/api/v1/venues/abc",
+            None,
+            None,
+        )
+        .await;
+        assert_eq!(status, StatusCode::BAD_REQUEST);
+        assert_eq!(problem["code"], "malformed_request");
+    }
+}
