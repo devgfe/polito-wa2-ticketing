@@ -1,15 +1,9 @@
-use chrono_tz::Tz;
-use std::{collections::HashSet, num::NonZeroU32};
+#![allow(dead_code)]
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum Violation {
-    TooShort,
-    TooLong,
-    OutOfRange,
-    InvalidFormat,
-    TooFewItems,
-    NotUnique,
-}
+use chrono_tz::Tz;
+use std::{collections::HashSet};
+use crate::common::Violation;
+
 
 #[derive(Debug, Clone, PartialEq, Eq, Copy, Hash)]
 pub struct VenueId(i64);
@@ -175,13 +169,16 @@ impl NewSector {
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct Seat {
     pub row: Row,
-    pub number: NonZeroU32,
+    pub number: SeatNumber,
 }
 
 impl Seat {
-    pub fn new(row: Row, number: NonZeroU32) -> Seat {
+    pub fn new(row: Row, number: SeatNumber) -> Seat {
         Seat { row, number }
     }
+
+    
+
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -280,28 +277,47 @@ impl TryFrom<String> for Row {
     }
 }
 
-pub fn seat_number(value: i64) -> Result<NonZeroU32, Violation> {
-    u32::try_from(value)
-        .ok()
-        .and_then(NonZeroU32::new)
-        .ok_or(Violation::OutOfRange)
+#[derive(Debug, Clone, PartialEq, Eq, Hash, Copy)]
+pub struct SeatNumber(i32);
+
+impl SeatNumber {
+    pub fn get(self) -> i32 {
+        self.0
+    }
+}
+
+impl TryFrom<i64> for SeatNumber{
+    type Error = Violation;
+
+    fn try_from(value: i64) -> Result<Self, Self::Error> {
+        if value <= 0{
+            return Err(Violation::OutOfRange)
+        }
+        if value > i32::MAX as i64{
+            return Err(Violation::OutOfRange)
+        }
+        
+        Ok(SeatNumber(value as i32))
+    }
 }
 
 pub fn time_zone(value: &str) -> Result<Tz, Violation> {
     value.parse::<Tz>().map_err(|_| Violation::InvalidFormat)
 }
 
+// ------------------------- DOMAIN TESTS ------------------------
 
-
-/// ------------------------- DOMAIN TESTS------------------------
 /// The values that the types accept and refuse, and the rules of a venue as a whole.
 /// No service, no repository: only the types.
 #[cfg(test)]
 mod tests {
     use super::*;
 
-    fn seat(row: &str, number: u32) -> Seat {
-        Seat::new(Row::try_from(row.to_string()).unwrap(), NonZeroU32::new(number).unwrap())
+    fn seat(row: &str, number: i64) -> Seat {
+        Seat::new(
+            Row::try_from(row.to_string()).unwrap(),
+            SeatNumber::try_from(number).unwrap(),
+        )
     }
 
     fn sector(seats: Vec<Seat>) -> Result<NewSector, Violation> {
@@ -349,16 +365,20 @@ mod tests {
     // Seat numbers and time zones
 
     #[test]
-    fn a_seat_number_goes_from_1_to_the_largest_u32() {
-        for number in [1, u32::MAX as i64] {
-            assert_eq!(seat_number(number).unwrap().get() as i64, number);
+    fn a_seat_number_goes_from_1_to_the_largest_i32() {
+        for number in [1, i32::MAX as i64] {
+            assert_eq!(SeatNumber::try_from(number).unwrap().get() as i64, number);
         }
     }
 
     #[test]
     fn a_seat_number_out_of_range_is_refused() {
-        for number in [0, -1, u32::MAX as i64 + 1] {
-            assert_eq!(seat_number(number), Err(Violation::OutOfRange), "seat_number({number})");
+        for number in [0, -1, i32::MAX as i64 + 1] {
+            assert_eq!(
+                SeatNumber::try_from(number),
+                Err(Violation::OutOfRange),
+                "SeatNumber::try_from({number})"
+            );
         }
     }
 
