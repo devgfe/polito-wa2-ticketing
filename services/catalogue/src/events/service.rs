@@ -124,14 +124,20 @@ mod tests {
     #[tokio::test]
     async fn create_with_unknown_venue_fails() {
         let service = service_with(vec![]);
-        let err = service.create_event(new_event(99, Uuid::new_v4())).await.unwrap_err();
+        let err = service
+            .create_event(new_event(99, Uuid::new_v4()))
+            .await
+            .unwrap_err();
         assert_eq!(err, EventError::UnknownVenue(VenueId(99)));
     }
 
     #[tokio::test]
     async fn create_returns_a_draft_with_its_venue() {
         let service = service_with(vec![]);
-        let event = service.create_event(new_event(3, Uuid::new_v4())).await.unwrap();
+        let event = service
+            .create_event(new_event(3, Uuid::new_v4()))
+            .await
+            .unwrap();
         assert!(!event.is_published());
         assert_eq!(event.venue.city, "Torino");
     }
@@ -143,7 +149,10 @@ mod tests {
         let owner = Uuid::new_v4();
         let service = service_with(vec![event(1, owner, false)]);
 
-        assert_eq!(service.get_event(EventId(1), None).await, Err(EventError::NotFound(EventId(1))));
+        assert_eq!(
+            service.get_event(EventId(1), None).await,
+            Err(EventError::NotFound(EventId(1)))
+        );
         assert_eq!(
             service.get_event(EventId(1), Some(Uuid::new_v4())).await,
             Err(EventError::NotFound(EventId(1)))
@@ -174,7 +183,10 @@ mod tests {
         assert_eq!(ids, vec![1, 3]);
         assert_eq!(first.next_after, Some(EventId(3)));
 
-        let second = service.list_events(None, first.next_after, 2).await.unwrap();
+        let second = service
+            .list_events(None, first.next_after, 2)
+            .await
+            .unwrap();
         let ids: Vec<i64> = second.items.iter().map(|e| e.id.0).collect();
         assert_eq!(ids, vec![4]);
         assert_eq!(second.next_after, None);
@@ -198,17 +210,29 @@ mod tests {
     async fn the_organizer_can_rename_a_draft() {
         let owner = Uuid::new_v4();
         let service = service_with(vec![event(1, owner, false)]);
-        let changes = EventChanges { name: Some("New name".into()), ..Default::default() };
+        let changes = EventChanges {
+            name: Some("New name".into()),
+            ..Default::default()
+        };
 
-        let updated = service.update_event(EventId(1), owner, changes).await.unwrap();
+        let updated = service
+            .update_event(EventId(1), owner, changes)
+            .await
+            .unwrap();
         assert_eq!(updated.name, "New name");
     }
 
     #[tokio::test]
     async fn only_the_organizer_can_update() {
         let service = service_with(vec![event(1, Uuid::new_v4(), false)]);
-        let changes = EventChanges { name: Some("x".into()), ..Default::default() };
-        let err = service.update_event(EventId(1), Uuid::new_v4(), changes).await.unwrap_err();
+        let changes = EventChanges {
+            name: Some("x".into()),
+            ..Default::default()
+        };
+        let err = service
+            .update_event(EventId(1), Uuid::new_v4(), changes)
+            .await
+            .unwrap_err();
         assert_eq!(err, EventError::Forbidden);
     }
 
@@ -216,8 +240,14 @@ mod tests {
     async fn moving_a_draft_to_an_unknown_venue_fails() {
         let owner = Uuid::new_v4();
         let service = service_with(vec![event(1, owner, false)]);
-        let changes = EventChanges { venue_id: Some(VenueId(99)), ..Default::default() };
-        let err = service.update_event(EventId(1), owner, changes).await.unwrap_err();
+        let changes = EventChanges {
+            venue_id: Some(VenueId(99)),
+            ..Default::default()
+        };
+        let err = service
+            .update_event(EventId(1), owner, changes)
+            .await
+            .unwrap_err();
         assert_eq!(err, EventError::UnknownVenue(VenueId(99)));
     }
 
@@ -225,15 +255,24 @@ mod tests {
     async fn moving_a_published_event_fails() {
         let owner = Uuid::new_v4();
         let service = service_with(vec![event(1, owner, true)]);
-        let changes = EventChanges { venue_id: Some(VenueId(4)), ..Default::default() };
-        let err = service.update_event(EventId(1), owner, changes).await.unwrap_err();
+        let changes = EventChanges {
+            venue_id: Some(VenueId(4)),
+            ..Default::default()
+        };
+        let err = service
+            .update_event(EventId(1), owner, changes)
+            .await
+            .unwrap_err();
         assert_eq!(err, EventError::EventPublished);
     }
 
     #[tokio::test]
     async fn updating_a_missing_event_is_not_found() {
         let service = service_with(vec![]);
-        let err = service.update_event(EventId(7), Uuid::new_v4(), EventChanges::default()).await.unwrap_err();
+        let err = service
+            .update_event(EventId(7), Uuid::new_v4(), EventChanges::default())
+            .await
+            .unwrap_err();
         assert_eq!(err, EventError::NotFound(EventId(7)));
     }
 
@@ -250,14 +289,20 @@ mod tests {
     #[tokio::test]
     async fn only_the_organizer_can_delete() {
         let service = service_with(vec![event(1, Uuid::new_v4(), false)]);
-        let err = service.delete_event(EventId(1), Uuid::new_v4()).await.unwrap_err();
+        let err = service
+            .delete_event(EventId(1), Uuid::new_v4())
+            .await
+            .unwrap_err();
         assert_eq!(err, EventError::Forbidden);
     }
 
     #[tokio::test]
     async fn deleting_a_missing_event_is_ok() {
         let service = service_with(vec![]);
-        assert_eq!(service.delete_event(EventId(42), Uuid::new_v4()).await, Ok(()));
+        assert_eq!(
+            service.delete_event(EventId(42), Uuid::new_v4()).await,
+            Ok(())
+        );
     }
 
     #[tokio::test]
@@ -265,6 +310,9 @@ mod tests {
         let owner = Uuid::new_v4();
         let service = service_with(vec![event(1, owner, false)]);
         service.delete_event(EventId(1), owner).await.unwrap();
-        assert_eq!(service.get_event(EventId(1), Some(owner)).await, Err(EventError::NotFound(EventId(1))));
+        assert_eq!(
+            service.get_event(EventId(1), Some(owner)).await,
+            Err(EventError::NotFound(EventId(1)))
+        );
     }
 }

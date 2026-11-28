@@ -16,12 +16,16 @@ impl Config {
         dotenvy::dotenv().ok();
 
         let config = Self {
-            port: env_or("PORT", "3001").parse().context("PORT must be a port number")?,
+            port: env_or("PORT", "3001")
+                .parse()
+                .context("PORT must be a port number")?,
             database_url: std::env::var("DATABASE_URL").context("DATABASE_URL is required")?,
             page_size_default: env_or("PAGE_SIZE_DEFAULT", "20")
                 .parse()
                 .context("PAGE_SIZE_DEFAULT must be a number")?,
-            page_size_max: env_or("PAGE_SIZE_MAX", "200").parse().context("PAGE_SIZE_MAX must be a number")?,
+            page_size_max: env_or("PAGE_SIZE_MAX", "200")
+                .parse()
+                .context("PAGE_SIZE_MAX must be a number")?,
             cors_origins: env_or("CORS_ORIGINS", "")
                 .split(',')
                 .map(str::trim)

@@ -11,10 +11,12 @@ use crate::{
     },
 };
 use axum::{
-    Json, Router, extract::{Path, State, rejection::JsonRejection}, http::{HeaderName, StatusCode, header}, routing::{get, post},
+    Json, Router,
+    extract::{Path, State, rejection::JsonRejection},
+    http::{HeaderName, StatusCode, header},
+    routing::{get, post},
 };
 use serde::{Deserialize, Serialize};
-
 
 #[derive(Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -250,16 +252,12 @@ async fn create_venue(
     State(state): State<AppState>,
     user: CurrentUser,
     input: Result<Json<VenueInput>, JsonRejection>,
-) ->  Result<(StatusCode, [(HeaderName, String); 1], Json<VenueDto>), AppError> {
+) -> Result<(StatusCode, [(HeaderName, String); 1], Json<VenueDto>), AppError> {
+    let Json(body) = input.map_err(|e| AppError::Malformed(e.body_text()))?;
 
-    let Json(body)  = input.map_err(|e| AppError::Malformed(e.body_text()))?;
-    
-    let new_venue = match body.into_new_venue(user.require()?){ 
-        Ok(new_venue) => {
-            new_venue
-        },
-        Err(e) => return Err(AppError::Validation(e))
-
+    let new_venue = match body.into_new_venue(user.require()?) {
+        Ok(new_venue) => new_venue,
+        Err(e) => return Err(AppError::Validation(e)),
     };
     let created = state.venues.create(new_venue).await?;
     let created_id = created.id.get();
@@ -268,11 +266,15 @@ async fn create_venue(
 
     let venue_dto: VenueDto = created.into();
 
-    Ok((StatusCode::CREATED, [(header::LOCATION, url)], Json(venue_dto)))
+    Ok((
+        StatusCode::CREATED,
+        [(header::LOCATION, url)],
+        Json(venue_dto),
+    ))
 }
 
-pub fn router() -> Router<AppState>{
+pub fn router() -> Router<AppState> {
     Router::new()
         .route("/api/v1/venues/{venue_id}", get(get_venue))
         .route("/api/v1/venues", post(create_venue))
-}   
+}

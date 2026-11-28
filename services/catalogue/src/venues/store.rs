@@ -1,11 +1,12 @@
-use std::collections::HashMap;
 use crate::common::Violation;
 use crate::venues::domain::{
-    City, NewVenue, Row, Seat, SeatNumber, Sector, SectorId, SectorName, Venue, VenueId, VenueName, time_zone,
+    City, NewVenue, Row, Seat, SeatNumber, Sector, SectorId, SectorName, Venue, VenueId, VenueName,
+    time_zone,
 };
 use crate::venues::service::{RepositoryError, VenueRepository};
 use async_trait::async_trait;
 use sqlx::{FromRow, PgPool};
+use std::collections::HashMap;
 
 impl From<sqlx::Error> for RepositoryError {
     fn from(error: sqlx::Error) -> Self {
@@ -97,7 +98,7 @@ impl VenueRepository for PgVenueRepository {
             for new_seat in new_sector.get_seats() {
                 sqlx::query(
                     r#"INSERT INTO seat (venue_id, sector_id, "row", number)
-                    VALUES ($1,$2,$3,$4)"#
+                    VALUES ($1,$2,$3,$4)"#,
                 )
                 .bind(venue_id)
                 .bind(sector_id)

@@ -51,7 +51,11 @@ impl FieldError {
             FieldCode::TooFewItems => "has too few items",
             FieldCode::NotUnique => "contains duplicates",
         };
-        FieldError { field: field.into(), code, detail: detail.to_string() }
+        FieldError {
+            field: field.into(),
+            code,
+            detail: detail.to_string(),
+        }
     }
 }
 
@@ -124,16 +128,36 @@ impl IntoResponse for AppError {
         use StatusCode as S;
 
         let (status, code, title, detail, errors) = match self {
-            AppError::Validation(errors) => {
-                (S::UNPROCESSABLE_ENTITY, "validation_failed", "Validation failed", None, errors)
-            }
-            AppError::Malformed(detail) => {
-                (S::BAD_REQUEST, "malformed_request", "Malformed request", Some(detail), Vec::new())
-            }
-            AppError::NotFound(detail) => (S::NOT_FOUND, "not_found", "Not found", Some(detail), Vec::new()),
+            AppError::Validation(errors) => (
+                S::UNPROCESSABLE_ENTITY,
+                "validation_failed",
+                "Validation failed",
+                None,
+                errors,
+            ),
+            AppError::Malformed(detail) => (
+                S::BAD_REQUEST,
+                "malformed_request",
+                "Malformed request",
+                Some(detail),
+                Vec::new(),
+            ),
+            AppError::NotFound(detail) => (
+                S::NOT_FOUND,
+                "not_found",
+                "Not found",
+                Some(detail),
+                Vec::new(),
+            ),
             AppError::Internal(detail) => {
                 tracing::error!("internal error: {detail}");
-                (S::INTERNAL_SERVER_ERROR, "internal_error", "Internal error", None, Vec::new())
+                (
+                    S::INTERNAL_SERVER_ERROR,
+                    "internal_error",
+                    "Internal error",
+                    None,
+                    Vec::new(),
+                )
             }
             AppError::Unauthorized => (
                 S::UNAUTHORIZED,
@@ -142,25 +166,62 @@ impl IntoResponse for AppError {
                 Some("missing or invalid credentials".to_string()),
                 Vec::new(),
             ),
-            AppError::Forbidden(detail) => (S::FORBIDDEN, "forbidden", "Forbidden", Some(detail), Vec::new()),
-            AppError::VenueInUse(detail) => (S::CONFLICT, "venue_in_use", "Venue in use", Some(detail), Vec::new()),
-            AppError::EventPublished(detail) => {
-                (S::CONFLICT, "event_published", "Event published", Some(detail), Vec::new())
-            }
-            AppError::EventNotPublishable(detail) => {
-                (S::CONFLICT, "event_not_publishable", "Event not publishable", Some(detail), Vec::new())
-            }
-            AppError::SalesOpen(detail) => (S::CONFLICT, "sales_open", "Sales open", Some(detail), Vec::new()),
-            AppError::UnknownVenue(detail) => {
-                (S::UNPROCESSABLE_ENTITY, "unknown_venue", "Unknown venue", Some(detail), Vec::new())
-            }
-            AppError::UnknownSeat(detail) => {
-                (S::UNPROCESSABLE_ENTITY, "unknown_seat", "Unknown seat", Some(detail), Vec::new())
-            }
+            AppError::Forbidden(detail) => (
+                S::FORBIDDEN,
+                "forbidden",
+                "Forbidden",
+                Some(detail),
+                Vec::new(),
+            ),
+            AppError::VenueInUse(detail) => (
+                S::CONFLICT,
+                "venue_in_use",
+                "Venue in use",
+                Some(detail),
+                Vec::new(),
+            ),
+            AppError::EventPublished(detail) => (
+                S::CONFLICT,
+                "event_published",
+                "Event published",
+                Some(detail),
+                Vec::new(),
+            ),
+            AppError::EventNotPublishable(detail) => (
+                S::CONFLICT,
+                "event_not_publishable",
+                "Event not publishable",
+                Some(detail),
+                Vec::new(),
+            ),
+            AppError::SalesOpen(detail) => (
+                S::CONFLICT,
+                "sales_open",
+                "Sales open",
+                Some(detail),
+                Vec::new(),
+            ),
+            AppError::UnknownVenue(detail) => (
+                S::UNPROCESSABLE_ENTITY,
+                "unknown_venue",
+                "Unknown venue",
+                Some(detail),
+                Vec::new(),
+            ),
+            AppError::UnknownSeat(detail) => (
+                S::UNPROCESSABLE_ENTITY,
+                "unknown_seat",
+                "Unknown seat",
+                Some(detail),
+                Vec::new(),
+            ),
         };
 
         let problem = Problem {
-            kind: format!("https://ticketing.example/problems/{}", code.replace('_', "-")),
+            kind: format!(
+                "https://ticketing.example/problems/{}",
+                code.replace('_', "-")
+            ),
             title,
             status: status.as_u16(),
             code,
@@ -168,7 +229,12 @@ impl IntoResponse for AppError {
             errors,
         };
 
-        (status, [(header::CONTENT_TYPE, "application/problem+json")], Json(problem)).into_response()
+        (
+            status,
+            [(header::CONTENT_TYPE, "application/problem+json")],
+            Json(problem),
+        )
+            .into_response()
     }
 }
 

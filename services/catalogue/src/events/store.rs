@@ -4,8 +4,8 @@ use sqlx::PgPool;
 use uuid::Uuid;
 
 use super::domain::{Event, EventChanges, EventError, EventId, NewEvent};
-use super::service::EventRepository;
 use super::domain::{VenueId, VenueSummary};
+use super::service::EventRepository;
 
 pub struct PgEventRepository {
     pool: PgPool,
@@ -152,7 +152,9 @@ impl EventRepository for PgEventRepository {
         let (id,) = match result {
             Ok(row) => row,
             // Il venue è sparito tra il controllo del service e l'INSERT: la FK lo blocca.
-            Err(e) if is_foreign_key_violation(&e) => return Err(EventError::UnknownVenue(new.venue_id)),
+            Err(e) if is_foreign_key_violation(&e) => {
+                return Err(EventError::UnknownVenue(new.venue_id));
+            }
             Err(e) => return Err(storage(e)),
         };
 
@@ -202,7 +204,11 @@ impl EventRepository for PgEventRepository {
             "DELETE FROM session WHERE event_id = $1",
             "DELETE FROM event WHERE id = $1",
         ] {
-            sqlx::query(sql).bind(id.0).execute(&mut *tx).await.map_err(storage)?;
+            sqlx::query(sql)
+                .bind(id.0)
+                .execute(&mut *tx)
+                .await
+                .map_err(storage)?;
         }
         tx.commit().await.map_err(storage)
     }

@@ -8,7 +8,6 @@ pub enum RepositoryError {
     Failed(String),
 }
 
-
 #[async_trait]
 pub trait VenueRepository: Send + Sync {
     /// creates a Venue (with ID) from a NewVenue (without ID)

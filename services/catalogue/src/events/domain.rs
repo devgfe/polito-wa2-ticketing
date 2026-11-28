@@ -1,4 +1,3 @@
-
 use chrono::{DateTime, NaiveDateTime, Utc};
 use uuid::Uuid;
 
@@ -92,7 +91,10 @@ impl Event {
     // Business rule: di un evento pubblicato si può cambiare solo il nome.
     pub fn ensure_changeable(&self, changes: &EventChanges) -> Result<(), EventError> {
         let touches_fixed_fields = changes.venue_id.is_some_and(|v| v != self.venue.id)
-            || changes.currency.as_ref().is_some_and(|c| *c != self.currency)
+            || changes
+                .currency
+                .as_ref()
+                .is_some_and(|c| *c != self.currency)
             || changes.sale_start.is_some_and(|s| s != self.sale_start);
 
         if self.is_published() && touches_fixed_fields {
@@ -126,7 +128,10 @@ mod tests {
     }
 
     fn published() -> Event {
-        Event { published_at: Some(Utc::now()), ..draft() }
+        Event {
+            published_at: Some(Utc::now()),
+            ..draft()
+        }
     }
 
     #[test]
@@ -136,7 +141,10 @@ mod tests {
 
     #[test]
     fn a_published_event_cannot_be_deleted() {
-        assert_eq!(published().ensure_deletable(), Err(EventError::EventPublished));
+        assert_eq!(
+            published().ensure_deletable(),
+            Err(EventError::EventPublished)
+        );
     }
 
     #[test]
@@ -147,22 +155,38 @@ mod tests {
 
     #[test]
     fn a_draft_can_change_everything() {
-        let changes = EventChanges { venue_id: Some(VenueId(9)), currency: Some("USD".into()), ..Default::default() };
+        let changes = EventChanges {
+            venue_id: Some(VenueId(9)),
+            currency: Some("USD".into()),
+            ..Default::default()
+        };
         assert_eq!(draft().ensure_changeable(&changes), Ok(()));
     }
 
     #[test]
     fn a_published_event_can_change_only_its_name() {
-        let rename = EventChanges { name: Some("New name".into()), ..Default::default() };
+        let rename = EventChanges {
+            name: Some("New name".into()),
+            ..Default::default()
+        };
         assert_eq!(published().ensure_changeable(&rename), Ok(()));
 
-        let move_venue = EventChanges { venue_id: Some(VenueId(9)), ..Default::default() };
-        assert_eq!(published().ensure_changeable(&move_venue), Err(EventError::EventPublished));
+        let move_venue = EventChanges {
+            venue_id: Some(VenueId(9)),
+            ..Default::default()
+        };
+        assert_eq!(
+            published().ensure_changeable(&move_venue),
+            Err(EventError::EventPublished)
+        );
     }
 
     #[test]
     fn sending_the_same_value_is_not_a_change() {
-        let same_currency = EventChanges { currency: Some("EUR".into()), ..Default::default() };
+        let same_currency = EventChanges {
+            currency: Some("EUR".into()),
+            ..Default::default()
+        };
         assert_eq!(published().ensure_changeable(&same_currency), Ok(()));
     }
 }

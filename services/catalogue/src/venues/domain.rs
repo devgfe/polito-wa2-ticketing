@@ -1,7 +1,6 @@
-use chrono_tz::Tz;
-use std::{collections::HashSet};
 use crate::common::Violation;
-
+use chrono_tz::Tz;
+use std::collections::HashSet;
 
 #[derive(Debug, Clone, PartialEq, Eq, Copy, Hash)]
 pub struct VenueId(i64);
@@ -58,12 +57,12 @@ impl Venue {
         }
     }
 
-    pub fn summary(self)-> VenueSummary{
-        VenueSummary{
+    pub fn summary(self) -> VenueSummary {
+        VenueSummary {
             id: self.id,
             name: self.name,
             city: self.city,
-            time_zone: self.time_zone
+            time_zone: self.time_zone,
         }
     }
 }
@@ -174,9 +173,6 @@ impl Seat {
     pub fn new(row: Row, number: SeatNumber) -> Seat {
         Seat { row, number }
     }
-
-    
-
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -284,17 +280,17 @@ impl SeatNumber {
     }
 }
 
-impl TryFrom<i64> for SeatNumber{
+impl TryFrom<i64> for SeatNumber {
     type Error = Violation;
 
     fn try_from(value: i64) -> Result<Self, Self::Error> {
-        if value <= 0{
-            return Err(Violation::OutOfRange)
+        if value <= 0 {
+            return Err(Violation::OutOfRange);
         }
-        if value > i32::MAX as i64{
-            return Err(Violation::OutOfRange)
+        if value > i32::MAX as i64 {
+            return Err(Violation::OutOfRange);
         }
-        
+
         Ok(SeatNumber(value as i32))
     }
 }
@@ -348,7 +344,10 @@ mod tests {
     fn an_empty_text_is_too_short() {
         assert_eq!(Row::try_from(String::new()), Err(Violation::TooShort));
         assert_eq!(City::try_from(String::new()), Err(Violation::TooShort));
-        assert_eq!(SectorName::try_from(String::new()), Err(Violation::TooShort));
+        assert_eq!(
+            SectorName::try_from(String::new()),
+            Err(Violation::TooShort)
+        );
         assert_eq!(VenueName::try_from(String::new()), Err(Violation::TooShort));
     }
 
@@ -356,8 +355,14 @@ mod tests {
     fn a_text_one_past_its_limit_is_too_long() {
         assert_eq!(Row::try_from("a".repeat(11)), Err(Violation::TooLong));
         assert_eq!(City::try_from("a".repeat(101)), Err(Violation::TooLong));
-        assert_eq!(SectorName::try_from("a".repeat(101)), Err(Violation::TooLong));
-        assert_eq!(VenueName::try_from("a".repeat(201)), Err(Violation::TooLong));
+        assert_eq!(
+            SectorName::try_from("a".repeat(101)),
+            Err(Violation::TooLong)
+        );
+        assert_eq!(
+            VenueName::try_from("a".repeat(201)),
+            Err(Violation::TooLong)
+        );
     }
 
     // Seat numbers and time zones
@@ -389,7 +394,11 @@ mod tests {
     #[test]
     fn a_time_zone_of_another_form_is_refused() {
         for name in ["", "Roma", "europe/rome", "Europe/Rome "] {
-            assert_eq!(time_zone(name), Err(Violation::InvalidFormat), "time_zone({name:?})");
+            assert_eq!(
+                time_zone(name),
+                Err(Violation::InvalidFormat),
+                "time_zone({name:?})"
+            );
         }
     }
 

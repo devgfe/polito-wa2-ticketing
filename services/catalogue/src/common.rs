@@ -30,7 +30,11 @@ pub fn check_length(value: String, min: usize, max: usize) -> Result<String, Vio
 
 // Gli id sono BIGINT positivi nel DB, stringhe nell'API.
 pub fn parse_id(value: &str) -> Result<i64, Violation> {
-    value.parse().ok().filter(|id| *id > 0).ok_or(Violation::InvalidFormat)
+    value
+        .parse()
+        .ok()
+        .filter(|id| *id > 0)
+        .ok_or(Violation::InvalidFormat)
 }
 
 pub fn check_currency(value: String) -> Result<String, Violation> {
@@ -73,7 +77,10 @@ impl Pagination {
         if (1..=self.max).contains(&limit) {
             Ok(limit)
         } else {
-            Err(AppError::Validation(vec![FieldError::new("limit", FieldCode::OutOfRange)]))
+            Err(AppError::Validation(vec![FieldError::new(
+                "limit",
+                FieldCode::OutOfRange,
+            )]))
         }
     }
 }
@@ -84,12 +91,16 @@ struct CursorData {
 }
 
 pub fn encode_cursor(last_id: i64) -> String {
-    let json = serde_json::to_vec(&CursorData { id: last_id.to_string() }).expect("cursor serializes");
+    let json = serde_json::to_vec(&CursorData {
+        id: last_id.to_string(),
+    })
+    .expect("cursor serializes");
     URL_SAFE_NO_PAD.encode(json)
 }
 
 pub fn decode_cursor(cursor: &str) -> Result<i64, AppError> {
-    let invalid = || AppError::Validation(vec![FieldError::new("cursor", FieldCode::InvalidFormat)]);
+    let invalid =
+        || AppError::Validation(vec![FieldError::new("cursor", FieldCode::InvalidFormat)]);
 
     let bytes = URL_SAFE_NO_PAD.decode(cursor).map_err(|_| invalid())?;
     let data: CursorData = serde_json::from_slice(&bytes).map_err(|_| invalid())?;
@@ -113,7 +124,10 @@ mod tests {
 
     #[test]
     fn limit_uses_default_and_bounds() {
-        let p = Pagination { default: 20, max: 200 };
+        let p = Pagination {
+            default: 20,
+            max: 200,
+        };
         assert_eq!(p.limit(None).unwrap(), 20);
         assert_eq!(p.limit(Some(200)).unwrap(), 200);
         assert!(p.limit(Some(0)).is_err());
@@ -124,7 +138,10 @@ mod tests {
     fn local_date_times_round_trip() {
         let t = parse_local("2026-12-05T20:00:00").unwrap();
         assert_eq!(format_local(t), "2026-12-05T20:00:00");
-        assert_eq!(parse_local("2026-12-05 20:00"), Err(Violation::InvalidFormat));
+        assert_eq!(
+            parse_local("2026-12-05 20:00"),
+            Err(Violation::InvalidFormat)
+        );
     }
 
     #[test]

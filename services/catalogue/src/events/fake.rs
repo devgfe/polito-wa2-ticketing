@@ -5,8 +5,8 @@ use chrono::Utc;
 use uuid::Uuid;
 
 use super::domain::{Event, EventChanges, EventError, EventId, NewEvent};
-use super::service::{EventRepository, EventService};
 use super::domain::{VenueId, VenueSummary};
+use super::service::{EventRepository, EventService};
 
 pub struct FakeRepo {
     pub venues: Vec<VenueSummary>,
@@ -22,7 +22,13 @@ impl FakeRepo {
 #[async_trait]
 impl EventRepository for FakeRepo {
     async fn find(&self, id: EventId) -> Result<Option<Event>, EventError> {
-        Ok(self.events.lock().unwrap().iter().find(|e| e.id == id).cloned())
+        Ok(self
+            .events
+            .lock()
+            .unwrap()
+            .iter()
+            .find(|e| e.id == id)
+            .cloned())
     }
 
     async fn list_published(
@@ -51,7 +57,9 @@ impl EventRepository for FakeRepo {
     }
 
     async fn insert(&self, new: NewEvent) -> Result<Event, EventError> {
-        let venue = self.venue(new.venue_id).ok_or(EventError::UnknownVenue(new.venue_id))?;
+        let venue = self
+            .venue(new.venue_id)
+            .ok_or(EventError::UnknownVenue(new.venue_id))?;
         let mut events = self.events.lock().unwrap();
         let event = Event {
             id: EventId(events.len() as i64 + 1),
@@ -69,7 +77,10 @@ impl EventRepository for FakeRepo {
     async fn update(&self, id: EventId, changes: &EventChanges) -> Result<Event, EventError> {
         let new_venue = changes.venue_id.and_then(|v| self.venue(v));
         let mut events = self.events.lock().unwrap();
-        let event = events.iter_mut().find(|e| e.id == id).ok_or(EventError::NotFound(id))?;
+        let event = events
+            .iter_mut()
+            .find(|e| e.id == id)
+            .ok_or(EventError::NotFound(id))?;
         if let Some(name) = &changes.name {
             event.name = name.clone();
         }

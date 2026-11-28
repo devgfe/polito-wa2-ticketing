@@ -8,14 +8,26 @@ mod venues;
 use std::sync::Arc;
 
 use anyhow::Context;
-use axum::{Router, extract::FromRef, extract::State, http::{HeaderValue, StatusCode}, routing::get};
+use axum::{
+    Router,
+    extract::FromRef,
+    extract::State,
+    http::{HeaderValue, StatusCode},
+    routing::get,
+};
 use sqlx::{PgPool, postgres::PgPoolOptions};
-use tower_http::{cors::{Any, CorsLayer}, trace::TraceLayer};
+use tower_http::{
+    cors::{Any, CorsLayer},
+    trace::TraceLayer,
+};
 use tracing_subscriber::EnvFilter;
 
-use crate::{common::Pagination, venues::{service::VenueService, store::PgVenueRepository}};
 use crate::config::Config;
 use crate::events::{service::EventService, store::PgEventRepository};
+use crate::{
+    common::Pagination,
+    venues::{service::VenueService, store::PgVenueRepository},
+};
 
 // ---------- Stato condiviso ----------
 
@@ -24,7 +36,7 @@ pub struct AppState {
     pub pool: PgPool,
     pub pagination: Pagination,
     pub events: EventService,
-    pub venues: VenueService
+    pub venues: VenueService,
 }
 
 impl FromRef<AppState> for EventService {
@@ -51,7 +63,9 @@ impl FromRef<AppState> for PgPool {
 async fn main() -> anyhow::Result<()> {
     let config = Config::from_env()?;
 
-    tracing_subscriber::fmt().with_env_filter(EnvFilter::from_default_env()).init();
+    tracing_subscriber::fmt()
+        .with_env_filter(EnvFilter::from_default_env())
+        .init();
 
     let pool = PgPoolOptions::new()
         .max_connections(10)
@@ -59,14 +73,20 @@ async fn main() -> anyhow::Result<()> {
         .await
         .context("cannot connect to the database")?;
 
-    sqlx::migrate!().run(&pool).await.context("cannot run the migrations")?;
+    sqlx::migrate!()
+        .run(&pool)
+        .await
+        .context("cannot run the migrations")?;
     tracing::info!("migrations applied");
 
     let state = AppState {
         pool: pool.clone(),
-        pagination: Pagination { default: config.page_size_default, max: config.page_size_max },
+        pagination: Pagination {
+            default: config.page_size_default,
+            max: config.page_size_max,
+        },
         events: EventService::new(Arc::new(PgEventRepository::new(pool.clone()))),
-        venues: VenueService::new(Arc::new(PgVenueRepository::new(pool.clone())))
+        venues: VenueService::new(Arc::new(PgVenueRepository::new(pool.clone()))),
     };
 
     let app = Router::new()
@@ -80,7 +100,9 @@ async fn main() -> anyhow::Result<()> {
     let listener = tokio::net::TcpListener::bind(("0.0.0.0", config.port)).await?;
     tracing::info!(port = config.port, "catalogue listening");
 
-    axum::serve(listener, app).with_graceful_shutdown(shutdown_signal()).await?;
+    axum::serve(listener, app)
+        .with_graceful_shutdown(shutdown_signal())
+        .await?;
     Ok(())
 }
 
@@ -99,7 +121,10 @@ fn cors(config: &Config) -> anyhow::Result<CorsLayer> {
         .iter()
         .map(|o| HeaderValue::from_str(o).with_context(|| format!("invalid CORS origin: {o}")))
         .collect::<anyhow::Result<Vec<_>>>()?;
-    Ok(CorsLayer::new().allow_origin(origins).allow_methods(Any).allow_headers(Any))
+    Ok(CorsLayer::new()
+        .allow_origin(origins)
+        .allow_methods(Any)
+        .allow_headers(Any))
 }
 
 // Ctrl+C (o lo stop di Docker): finisce le richieste in corso e poi si ferma.
